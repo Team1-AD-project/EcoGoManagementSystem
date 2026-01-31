@@ -1,35 +1,107 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useState } from 'react';
+import { Header } from '@/components/Header';
+import { Sidebar } from '@/components/Sidebar';
+import { Dashboard } from '@/components/modules/Dashboard';
+import { UserManagement } from '@/components/modules/UserManagement';
+import { TripDataManagement } from '@/components/modules/TripDataManagement';
+import { PointsTransactionManagement } from '@/components/modules/PointsTransactionManagement';
+import { VIPManagement } from '@/components/modules/VIPManagement';
+import { RewardStoreManagement } from '@/components/modules/RewardStoreManagement';
+import { CollectiblesManagement } from '@/components/modules/CollectiblesManagement';
+import { AnalyticsManagement } from '@/components/modules/AnalyticsManagement';
+import { AdManagement } from '@/components/modules/AdManagement';
+import { LeaderboardManagement } from '@/components/modules/LeaderboardManagement';
+import { ChatManagement } from '@/components/modules/ChatManagement';
+import { LandingPage } from '@/components/LandingPage';
+import { LoginPage } from '@/components/LoginPage';
 
-function App() {
-  const [count, setCount] = useState(0)
+type PageType = 'landing' | 'login' | 'admin';
 
+export default function App() {
+  const [selectedModule, setSelectedModule] = useState('dashboard');
+  const [currentPage, setCurrentPage] = useState<PageType>('landing');
+
+  const handleLogin = () => {
+    setCurrentPage('admin');
+  };
+
+  const handleLogout = () => {
+    setCurrentPage('landing');
+    setSelectedModule('dashboard');
+  };
+
+  const handleGoToLogin = () => {
+    setCurrentPage('login');
+  };
+
+  const handleGoToHome = () => {
+    setCurrentPage('landing');
+  };
+
+  const renderContent = () => {
+    switch (selectedModule) {
+      case 'dashboard':
+        return <Dashboard onModuleSelect={setSelectedModule} />;
+
+      case 'user-management':
+        return <UserManagement />;
+
+      case 'trip-management':
+        return <TripDataManagement />;
+
+      case 'points-management':
+        return <PointsTransactionManagement />;
+
+      case 'vip-management':
+        return <VIPManagement />;
+
+      case 'rewards-management':
+        return <RewardStoreManagement />;
+
+      case 'collectibles-management':
+        return <CollectiblesManagement />;
+
+      case 'analytics-management':
+        return <AnalyticsManagement />;
+
+      case 'ad-management':
+        return <AdManagement />;
+
+      case 'leaderboard-management':
+        return <LeaderboardManagement />;
+
+      case 'chat-management':
+        return <ChatManagement />;
+
+      default:
+        return <Dashboard onModuleSelect={setSelectedModule} />;
+    }
+  };
+
+  // Render Landing Page
+  if (currentPage === 'landing') {
+    return <LandingPage onGoToLogin={handleGoToLogin} />;
+  }
+
+  // Render Login Page
+  if (currentPage === 'login') {
+    return <LoginPage onLogin={handleLogin} onGoToHome={handleGoToHome} />;
+  }
+
+  // Render Admin Portal
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+    <div className="size-full flex flex-col bg-gray-50">
+      <Header />
+      <div className="flex-1 flex overflow-hidden">
+        <Sidebar
+          selectedModule={selectedModule}
+          onModuleSelect={setSelectedModule}
+          onLogout={handleLogout}
+        />
+        <main className="flex-1 overflow-y-auto">
+          {renderContent()}
+        </main>
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    </div>
+  );
 }
-
-export default App
