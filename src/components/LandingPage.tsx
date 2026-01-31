@@ -17,11 +17,7 @@ import {
   Check
 } from 'lucide-react';
 
-interface LandingPageProps {
-  onGoToLogin: () => void;
-}
-
-export function LandingPage({ onGoToLogin }: LandingPageProps) {
+export function LandingPage() {
   return (
     <div className="min-h-screen bg-white">
       {/* Navigation */}
@@ -38,18 +34,16 @@ export function LandingPage({ onGoToLogin }: LandingPageProps) {
             <a href="#benefits" className="text-gray-600 hover:text-gray-900">Benefits</a>
             <a href="#about" className="text-gray-600 hover:text-gray-900">About</a>
             <Button
-              onClick={onGoToLogin}
               className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white"
             >
-              Admin Login
+              Download App
             </Button>
           </div>
           <Button
-            onClick={onGoToLogin}
             size="sm"
             className="md:hidden bg-gradient-to-r from-green-600 to-blue-600 text-white"
           >
-            Login
+            Download
           </Button>
         </div>
       </nav>
@@ -82,10 +76,9 @@ export function LandingPage({ onGoToLogin }: LandingPageProps) {
             <Button
               size="lg"
               variant="outline"
-              onClick={onGoToLogin}
               className="border-2"
             >
-              Admin Portal
+              Learn More
             </Button>
           </div>
 
@@ -289,7 +282,7 @@ export function LandingPage({ onGoToLogin }: LandingPageProps) {
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-gray-400 py-12 px-6">
+      <footer id="about" className="bg-gray-900 text-gray-400 py-12 px-6">
         <div className="max-w-7xl mx-auto">
           <div className="grid md:grid-cols-4 gap-8 mb-8">
             <div>

@@ -1,16 +1,13 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Lock, Mail, Shield, TrendingUp, Users, Leaf } from 'lucide-react';
 
-interface LoginPageProps {
-  onLogin: () => void;
-  onGoToHome: () => void;
-}
-
-export function LoginPage({ onLogin, onGoToHome }: LoginPageProps) {
+export function LoginPage() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -18,12 +15,16 @@ export function LoginPage({ onLogin, onGoToHome }: LoginPageProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
+
     // Simulate login process
     setTimeout(() => {
       setIsLoading(false);
-      onLogin();
+      navigate('/admin/dashboard');
     }, 1000);
+  };
+
+  const handleGoToHome = () => {
+    navigate('/');
   };
 
   return (
@@ -105,7 +106,7 @@ export function LoginPage({ onLogin, onGoToHome }: LoginPageProps) {
           {/* Back to Home */}
           <div className="mt-6 text-center">
             <button
-              onClick={onGoToHome}
+              onClick={handleGoToHome}
               className="text-sm text-gray-600 hover:text-gray-900"
             >
               ← Back to Home
