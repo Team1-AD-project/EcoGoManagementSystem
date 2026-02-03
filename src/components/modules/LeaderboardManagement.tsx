@@ -405,14 +405,14 @@ export function LeaderboardManagement() {
 
       {/* Rankings Table */}
       {showFullRankings && (
-        <div className="flex-1 overflow-hidden px-6 pb-6">
-          <Card className="h-full flex flex-col">
+        <div className="px-6 pb-6">
+          <Card>
             <div className="p-4 border-b bg-gray-50">
               <h3 className="font-bold text-gray-900">Full Rankings</h3>
               <p className="text-sm text-gray-600">{filteredRankings.length} users</p>
             </div>
 
-            <div className="flex-1 overflow-y-auto">
+            <div className="max-h-[600px] overflow-y-auto">
               {filteredRankings.length === 0 ? (
                 <div className="text-center py-12 text-gray-500">
                   <Trophy className="size-12 mx-auto mb-4 opacity-50" />
