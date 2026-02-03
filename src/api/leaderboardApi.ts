@@ -1,14 +1,11 @@
-// API 基础配置
 const API_BASE_URL = 'http://localhost:8090/api/v1';
 
-// 响应类型
 interface ApiResponse<T> {
   code: number;
   message: string;
   data: T;
 }
 
-// 通用请求函数
 async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
   const response = await fetch(url, {
@@ -27,31 +24,38 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
   return response.json();
 }
 
-// 后端 Ranking 模型
 export interface Ranking {
   id: string;
   period: string;
-  type: string;
-  status: string;
-  startDate: string;
-  endDate: string;
-  createdAt: string;
   rank: number;
   userId: string;
   nickname: string;
-  steps: number;
+  carbonSaved: number;
   isVip: boolean;
 }
 
-// 获取所有可用的排行周期
+export interface Page<T> {
+  content: T[];
+  totalPages: number;
+  totalElements: number;
+  size: number;
+  number: number;
+}
+
+export interface LeaderboardStatsDto {
+  rankingsPage: Page<Ranking>;
+  totalCarbonSaved: number;
+  totalVipUsers: number;
+}
+
 export async function getLeaderboardPeriods(): Promise<string[]> {
   const response = await fetchApi<ApiResponse<string[]>>('/leaderboards/periods');
   return response.data;
 }
 
-// 获取特定周期的排行榜数据
-export async function getRankingsByPeriod(period: string): Promise<Ranking[]> {
+export async function getRankingsByPeriod(period: string, name: string = '', page: number = 0, size: number = 10): Promise<LeaderboardStatsDto> {
   const encodedPeriod = encodeURIComponent(period);
-  const response = await fetchApi<ApiResponse<Ranking[]>>(`/leaderboards/rankings?period=${encodedPeriod}`);
+  const encodedName = encodeURIComponent(name);
+  const response = await fetchApi<ApiResponse<LeaderboardStatsDto>>(`/leaderboards/rankings?period=${encodedPeriod}&name=${encodedName}&page=${page}&size=${size}`);
   return response.data;
 }

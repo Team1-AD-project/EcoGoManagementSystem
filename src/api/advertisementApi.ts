@@ -43,9 +43,18 @@ export interface Advertisement {
   clickRate?: number;  // 后端计算返回
 }
 
+export interface Page<T> {
+  content: T[];
+  totalPages: number;
+  totalElements: number;
+  size: number;
+  number: number;
+}
+
 // 获取所有广告
-export async function getAllAdvertisements(): Promise<Advertisement[]> {
-  const response = await fetchApi<ApiResponse<Advertisement[]>>('/advertisements');
+export async function getAllAdvertisements(name: string = '', page: number = 0, size: number = 10): Promise<Page<Advertisement>> {
+  const encodedName = encodeURIComponent(name);
+  const response = await fetchApi<ApiResponse<Page<Advertisement>>>(`/advertisements?name=${encodedName}&page=${page}&size=${size}`);
   return response.data;
 }
 
