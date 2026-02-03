@@ -12,8 +12,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Label } from '@/components/ui/label';
-import { fetchUserList, type User } from '@/services/userService';
+import { fetchUserList, fetchUserDetail, updateUser, updateUserStatus, type User } from '@/services/userService';
 import { toast } from 'sonner';
 
 export function UserManagement() {
@@ -61,16 +68,60 @@ export function UserManagement() {
     (user.userid || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleEdit = (user: User) => {
-    setEditingUser({ ...user });
+  const handleEdit = async (user: User) => {
     setIsEditDialogOpen(true);
+    setEditingUser(null); // Clear previous to show loading state if needed or show partial? 
+    // Showing partial data first is better UX, but we want full details.
+    // Let's set basic data first, then fetch.
+    setEditingUser({ ...user });
+
+    try {
+      const response = await fetchUserDetail(user.userid);
+      if (response.code === 200) {
+        setEditingUser(response.data);
+        toast.success(`Loaded details for ${response.data.nickname}`);
+      } else {
+        toast.error(response.message || 'Failed to fetch user details');
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error('Error fetching user details');
+    }
   };
 
-  const handleSaveEdit = () => {
-    // Placeholder for API update
-    setIsEditDialogOpen(false);
-    setEditingUser(null);
-    toast.info('Update functionality not implemented yet');
+  const handleSaveEdit = async () => {
+    if (!editingUser) return;
+
+    try {
+      const payload = {
+        nickname: editingUser.nickname,
+        email: editingUser.email,
+        isVipActive: editingUser.vip?.active || false,
+        isDeactivated: editingUser.isDeactivated || false, // Use the flat boolean if mapped, or check how I mapped it in edit dialog
+      };
+
+      // Note: In the dialog Select for status, I updated editingUser.isDeactivated.
+      // In the Select for VIP, I updated editingUser.vip.active.
+      // So the values in editingUser should be current.
+
+      // Assume updateUser returns a standard response interface, checking for code 200 if possible, 
+      // or just trust it throws on error or returns data. 
+      // api.put usually returns response.data. Let's assume response structure.
+      const response = await updateUser(editingUser.userid, payload);
+
+      if (response.code === 200) {
+        toast.success('User updated successfully');
+        setIsEditDialogOpen(false);
+        setEditingUser(null);
+        // Refresh the list
+        loadUsers();
+      } else {
+        toast.error(response.message || 'Failed to update user');
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error('Error updating user');
+    }
   };
 
   const handleDeactivateClick = (user: User) => {
@@ -78,11 +129,24 @@ export function UserManagement() {
     setIsDeactivateDialogOpen(true);
   };
 
-  const handleDeactivateConfirm = () => {
-    // Placeholder for API Deactivate
-    setIsDeactivateDialogOpen(false);
-    setUserToDeactivate(null);
-    toast.info('Deactivate functionality not implemented yet');
+  const handleDeactivateConfirm = async () => {
+    if (!userToDeactivate) return;
+
+    try {
+      const response = await updateUserStatus(userToDeactivate.userid, true);
+
+      if (response && (response.code === 200 || response.code === '200' || response.message?.toLowerCase().includes('success'))) {
+        toast.success(`User ${userToDeactivate.nickname} has been deactivated`);
+        setUserToDeactivate(null);
+        setIsDeactivateDialogOpen(false); // Close dialog
+        loadUsers();
+      } else {
+        toast.error(response.message || 'Failed to deactivate user');
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error('Error handling deactivation');
+    }
   };
 
   const normalUserCount = users.filter(u => !u.vip?.active).length; // Approximate from current page
@@ -286,13 +350,13 @@ export function UserManagement() {
           <DialogHeader>
             <DialogTitle>Edit User Information</DialogTitle>
             <DialogDescription>
-              Update user account information
+              Update user account information and permission settings
             </DialogDescription>
           </DialogHeader>
-          {editingUser && (
+          {editingUser ? (
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="nickname">Nickname</Label>
+                <Label htmlFor="nickname">NickName</Label>
                 <Input
                   id="nickname"
                   value={editingUser.nickname}
@@ -308,8 +372,49 @@ export function UserManagement() {
                   onChange={(e) => setEditingUser(curr => curr ? { ...curr, email: e.target.value } : null)}
                 />
               </div>
-              {/* Note: Modifying VIP/Status usually requires separate endpoints logic */}
+
+              <div className="space-y-2">
+                <Label>User Type</Label>
+                <Select
+                  value={editingUser.vip?.active ? 'vip' : 'normal'}
+                  onValueChange={(value) => {
+                    setEditingUser(curr => {
+                      if (!curr) return null;
+                      const newVip = { ...curr.vip, active: value === 'vip' };
+                      return { ...curr, vip: newVip };
+                    });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select user type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="vip">VIP User</SelectItem>
+                    <SelectItem value="normal">Normal User</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select
+                  value={!editingUser.isDeactivated ? 'active' : 'inactive'}
+                  onValueChange={(value) => {
+                    setEditingUser(curr => curr ? { ...curr, isDeactivated: value === 'inactive' } : null);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+          ) : (
+            <div className="py-8 text-center text-gray-500">Loading user details...</div>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>

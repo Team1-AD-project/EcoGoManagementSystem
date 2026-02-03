@@ -64,8 +64,39 @@ export interface UserListResponse {
     };
 }
 
+export interface UserDetailResponse {
+    code: number;
+    message: string;
+    data: User;
+}
+
 // Fetch user list with pagination
 export const fetchUserList = async (page: number = 1, size: number = 20): Promise<UserListResponse> => {
     const response = await api.get<UserListResponse>(`/users/list?page=${page}&size=${size}`);
+    return response.data;
+};
+
+// Fetch user detail
+export const fetchUserDetail = async (userid: string): Promise<UserDetailResponse> => {
+    const response = await api.get<UserDetailResponse>(`/users/detail/${userid}`);
+    return response.data;
+};
+
+export interface UpdateUserRequest {
+    nickname: string;
+    email: string | null;
+    isVipActive: boolean;
+    isDeactivated: boolean;
+}
+
+// Update user details
+export const updateUser = async (userid: string, data: UpdateUserRequest): Promise<any> => {
+    const response = await api.put(`/users/update/${userid}`, data);
+    return response.data;
+};
+
+// Update user status (Deactivate/Activate)
+export const updateUserStatus = async (userid: string, isDeactivated: boolean): Promise<any> => {
+    const response = await api.put(`/users/status/${userid}`, { isDeactivated });
     return response.data;
 };
