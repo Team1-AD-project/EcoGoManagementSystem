@@ -4,7 +4,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -30,7 +29,6 @@ import {
   TrendingUp,
   Calendar,
   MapPin,
-  Link as LinkIcon,
   AlertCircle,
   Power,
   Loader2,
@@ -42,30 +40,11 @@ import {
   updateAdvertisement,
   deleteAdvertisement,
   updateAdvertisementStatus,
-  type Advertisement as ApiAdvertisement
+  type Advertisement
 } from '@/api/advertisementApi';
 
-// 前端扩展的广告类型（包含 UI 所需的额外字段）
-interface Advertisement extends ApiAdvertisement {
-  description?: string;
-  imageUrl?: string;
-  linkUrl?: string;
-  position?: 'banner' | 'sidebar' | 'popup' | 'feed';
-  impressions?: number;
-  clicks?: number;
-  clickRate?: number;
-  budget?: number;
-  spent?: number;
-  targetAudience?: string;
-}
-
-// 默认图片
-const DEFAULT_IMAGES = [
-  'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=800',
-  'https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?w=800',
-  'https://images.unsplash.com/photo-1580870069867-74c57ee1bb07?w=800',
-  'https://images.unsplash.com/photo-1579547621700-1d0ca0f38e8a?w=800',
-];
+// 默认图片（当后端没有图片时使用）
+const DEFAULT_IMAGE = 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=800';
 
 export function AdManagement() {
   const [ads, setAds] = useState<Advertisement[]>([]);
@@ -89,31 +68,15 @@ export function AdManagement() {
     status: 'Active',
     startDate: '',
     endDate: '',
-    budget: 0,
-    targetAudience: 'All Users'
   });
 
-  // 加载广告数据
+  // 加载广告数据 - 直接使用后端返回的真实数据
   const loadAds = async () => {
     try {
       setLoading(true);
       setError(null);
       const data = await getAllAdvertisements();
-      // 为每个广告添加前端默认值
-      const enrichedAds: Advertisement[] = data.map((ad, index) => ({
-        ...ad,
-        description: ad.name + ' - Advertisement',
-        imageUrl: DEFAULT_IMAGES[index % DEFAULT_IMAGES.length],
-        linkUrl: '#',
-        position: (['banner', 'sidebar', 'popup', 'feed'] as const)[index % 4],
-        impressions: Math.floor(Math.random() * 50000) + 10000,
-        clicks: Math.floor(Math.random() * 5000) + 1000,
-        clickRate: parseFloat((Math.random() * 10 + 2).toFixed(2)),
-        budget: Math.floor(Math.random() * 100000) + 20000,
-        spent: Math.floor(Math.random() * 50000) + 5000,
-        targetAudience: 'All Users'
-      }));
-      setAds(enrichedAds);
+      setAds(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load advertisements');
       console.error('Error loading ads:', err);
@@ -135,12 +98,7 @@ export function AdManagement() {
     if (editingAd) {
       try {
         setSaving(true);
-        await updateAdvertisement(editingAd.id, {
-          name: editingAd.name,
-          status: editingAd.status,
-          startDate: editingAd.startDate,
-          endDate: editingAd.endDate
-        });
+        await updateAdvertisement(editingAd.id, editingAd);
         setAds(ads.map(a => a.id === editingAd.id ? editingAd : a));
         setIsEditDialogOpen(false);
         setEditingAd(null);
@@ -157,27 +115,18 @@ export function AdManagement() {
       setSaving(true);
       const createdAd = await createAdvertisement({
         name: newAd.name || '',
+        description: newAd.description || '',
         status: newAd.status || 'Active',
         startDate: newAd.startDate || '',
-        endDate: newAd.endDate || ''
-      });
-
-      // 添加前端字段
-      const enrichedAd: Advertisement = {
-        ...createdAd,
-        description: newAd.description || '',
-        imageUrl: newAd.imageUrl || DEFAULT_IMAGES[0],
-        linkUrl: newAd.linkUrl || '#',
+        endDate: newAd.endDate || '',
+        imageUrl: newAd.imageUrl || DEFAULT_IMAGE,
+        linkUrl: newAd.linkUrl || '',
         position: newAd.position || 'banner',
         impressions: 0,
         clicks: 0,
-        clickRate: 0,
-        budget: newAd.budget || 0,
-        spent: 0,
-        targetAudience: newAd.targetAudience || 'All Users'
-      };
+      });
 
-      setAds([...ads, enrichedAd]);
+      setAds([...ads, createdAd]);
       setIsAddDialogOpen(false);
       setNewAd({
         name: '',
@@ -188,8 +137,6 @@ export function AdManagement() {
         status: 'Active',
         startDate: '',
         endDate: '',
-        budget: 0,
-        targetAudience: 'All Users'
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create advertisement');
@@ -262,6 +209,12 @@ export function AdManagement() {
     return labels[position || 'banner'] || 'Banner';
   };
 
+  // 计算点击率
+  const calculateClickRate = (impressions: number, clicks: number): number => {
+    if (!impressions || impressions === 0) return 0;
+    return (clicks / impressions) * 100;
+  };
+
   const filteredAds = ads.filter(ad => {
     const statusMatch = filterStatus === 'all' || ad.status.toLowerCase() === filterStatus.toLowerCase();
     const positionMatch = filterPosition === 'all' || ad.position === filterPosition;
@@ -272,9 +225,7 @@ export function AdManagement() {
   const activeAds = ads.filter(a => a.status.toLowerCase() === 'active').length;
   const totalImpressions = ads.reduce((sum, a) => sum + (a.impressions || 0), 0);
   const totalClicks = ads.reduce((sum, a) => sum + (a.clicks || 0), 0);
-  const avgClickRate = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
-  const totalBudget = ads.reduce((sum, a) => sum + (a.budget || 0), 0);
-  const totalSpent = ads.reduce((sum, a) => sum + (a.spent || 0), 0);
+  const avgClickRate = calculateClickRate(totalImpressions, totalClicks);
 
   if (loading) {
     return (
@@ -340,9 +291,9 @@ export function AdManagement() {
           <div className="flex items-center justify-between mb-2">
             <TrendingUp className="size-8" />
           </div>
-          <p className="text-sm opacity-90 mb-1">Budget Usage</p>
-          <p className="text-3xl font-bold">{totalBudget > 0 ? ((totalSpent / totalBudget) * 100).toFixed(1) : 0}%</p>
-          <p className="text-xs opacity-75 mt-1">{totalSpent.toLocaleString()} / {totalBudget.toLocaleString()}</p>
+          <p className="text-sm opacity-90 mb-1">Active Rate</p>
+          <p className="text-3xl font-bold">{totalAds > 0 ? ((activeAds / totalAds) * 100).toFixed(1) : 0}%</p>
+          <p className="text-xs opacity-75 mt-1">{activeAds} / {totalAds} ads active</p>
         </Card>
       </div>
 
@@ -408,11 +359,11 @@ export function AdManagement() {
                   {/* Ad Image */}
                   <div className="relative h-48 bg-gray-100">
                     <img
-                      src={ad.imageUrl}
+                      src={ad.imageUrl || DEFAULT_IMAGE}
                       alt={ad.name}
                       className="w-full h-full object-cover"
                       onError={(e) => {
-                        (e.target as HTMLImageElement).src = DEFAULT_IMAGES[0];
+                        (e.target as HTMLImageElement).src = DEFAULT_IMAGE;
                       }}
                     />
                     <div className="absolute top-2 right-2">
@@ -451,7 +402,9 @@ export function AdManagement() {
                       </div>
                       <div>
                         <p className="text-xs text-gray-600 mb-1">Click Rate</p>
-                        <p className="font-bold text-green-600">{(ad.clickRate || 0).toFixed(2)}%</p>
+                        <p className="font-bold text-green-600">
+                          {calculateClickRate(ad.impressions || 0, ad.clicks || 0).toFixed(2)}%
+                        </p>
                       </div>
                     </div>
 
@@ -516,6 +469,15 @@ export function AdManagement() {
                 />
               </div>
 
+              <div className="col-span-2">
+                <Label>Description</Label>
+                <Input
+                  value={newAd.description}
+                  onChange={(e) => setNewAd({ ...newAd, description: e.target.value })}
+                  placeholder="Brief description of the advertisement"
+                />
+              </div>
+
               <div>
                 <Label>Ad Status *</Label>
                 <Select
@@ -537,7 +499,7 @@ export function AdManagement() {
                 <Label>Display Position</Label>
                 <Select
                   value={newAd.position}
-                  onValueChange={(value) => setNewAd({ ...newAd, position: value as any })}
+                  onValueChange={(value: 'banner' | 'sidebar' | 'popup' | 'feed') => setNewAd({ ...newAd, position: value })}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -566,6 +528,24 @@ export function AdManagement() {
                   type="date"
                   value={newAd.endDate}
                   onChange={(e) => setNewAd({ ...newAd, endDate: e.target.value })}
+                />
+              </div>
+
+              <div className="col-span-2">
+                <Label>Image URL</Label>
+                <Input
+                  value={newAd.imageUrl}
+                  onChange={(e) => setNewAd({ ...newAd, imageUrl: e.target.value })}
+                  placeholder="https://example.com/image.jpg"
+                />
+              </div>
+
+              <div className="col-span-2">
+                <Label>Link URL</Label>
+                <Input
+                  value={newAd.linkUrl}
+                  onChange={(e) => setNewAd({ ...newAd, linkUrl: e.target.value })}
+                  placeholder="https://example.com/promo"
                 />
               </div>
             </div>
@@ -606,6 +586,14 @@ export function AdManagement() {
                   />
                 </div>
 
+                <div className="col-span-2">
+                  <Label>Description</Label>
+                  <Input
+                    value={editingAd.description}
+                    onChange={(e) => setEditingAd({ ...editingAd, description: e.target.value })}
+                  />
+                </div>
+
                 <div>
                   <Label>Ad Status</Label>
                   <Select
@@ -627,7 +615,7 @@ export function AdManagement() {
                   <Label>Display Position</Label>
                   <Select
                     value={editingAd.position || 'banner'}
-                    onValueChange={(value: any) => setEditingAd({ ...editingAd, position: value })}
+                    onValueChange={(value: 'banner' | 'sidebar' | 'popup' | 'feed') => setEditingAd({ ...editingAd, position: value })}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -656,6 +644,22 @@ export function AdManagement() {
                     type="date"
                     value={editingAd.endDate}
                     onChange={(e) => setEditingAd({ ...editingAd, endDate: e.target.value })}
+                  />
+                </div>
+
+                <div className="col-span-2">
+                  <Label>Image URL</Label>
+                  <Input
+                    value={editingAd.imageUrl}
+                    onChange={(e) => setEditingAd({ ...editingAd, imageUrl: e.target.value })}
+                  />
+                </div>
+
+                <div className="col-span-2">
+                  <Label>Link URL</Label>
+                  <Input
+                    value={editingAd.linkUrl}
+                    onChange={(e) => setEditingAd({ ...editingAd, linkUrl: e.target.value })}
                   />
                 </div>
               </div>

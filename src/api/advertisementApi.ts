@@ -31,9 +31,16 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
 export interface Advertisement {
   id: string;
   name: string;
+  description: string;
   status: string;
   startDate: string;
   endDate: string;
+  imageUrl: string;
+  linkUrl: string;
+  position: 'banner' | 'sidebar' | 'popup' | 'feed';
+  impressions: number;
+  clicks: number;
+  clickRate?: number;  // 后端计算返回
 }
 
 // 获取所有广告
