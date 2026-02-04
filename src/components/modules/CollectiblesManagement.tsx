@@ -58,7 +58,10 @@ import {
   CircleDot,
   Candy,
   Palette,
-  Trash2
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  Search
 } from 'lucide-react';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 
@@ -196,9 +199,15 @@ export function CollectiblesManagement() {
   const [filterMethod, setFilterMethod] = useState<string>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterBadgeCategory, setFilterBadgeCategory] = useState<string>('all');
+  const [badgePage, setBadgePage] = useState(1);
+  const [accessoryPage, setAccessoryPage] = useState(1);
+  const ITEMS_PER_PAGE = 8;
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{ id: string; type: 'badge' | 'accessory'; name: string } | null>(null);
   const [isCreateBadgeOpen, setIsCreateBadgeOpen] = useState(false);
+  const [isCreateAccessoryOpen, setIsCreateAccessoryOpen] = useState(false);
+  const [searchBadgeId, setSearchBadgeId] = useState('');
+  const [searchAccessoryId, setSearchAccessoryId] = useState('');
   const [newBadge, setNewBadge] = useState({
     badgeId: '',
     nameEn: '',
@@ -212,6 +221,21 @@ export function CollectiblesManagement() {
     carbonThreshold: 0,
     iconUrl: '',
     iconColorScheme: '#4CAF50',
+    isActive: true
+  });
+  const [newAccessory, setNewAccessory] = useState({
+    badgeId: '',
+    nameEn: '',
+    nameZh: '',
+    descriptionEn: '',
+    descriptionZh: '',
+    category: 'cloth',
+    subCategory: 'clothes_Hat',
+    acquisitionMethod: 'purchase',
+    purchaseCost: 0,
+    carbonThreshold: 0,
+    iconUrl: '',
+    iconColorScheme: '#9C27B0',
     isActive: true
   });
 
@@ -305,6 +329,50 @@ export function CollectiblesManagement() {
     }
   };
 
+  const handleCreateAccessory = async () => {
+    try {
+      const accessoryData = {
+        badgeId: newAccessory.badgeId,
+        name: { en: newAccessory.nameEn, zh: newAccessory.nameZh },
+        description: { en: newAccessory.descriptionEn, zh: newAccessory.descriptionZh },
+        category: newAccessory.category,
+        subCategory: newAccessory.subCategory,
+        acquisitionMethod: newAccessory.acquisitionMethod,
+        purchaseCost: newAccessory.acquisitionMethod === 'purchase' ? newAccessory.purchaseCost : null,
+        carbonThreshold: newAccessory.acquisitionMethod === 'achievement' ? newAccessory.carbonThreshold : null,
+        icon: { url: newAccessory.iconUrl, colorScheme: newAccessory.iconColorScheme },
+        isActive: newAccessory.isActive,
+        createdAt: new Date().toISOString()
+      };
+
+      await createBadge(accessoryData);
+
+      // Reload data
+      await loadData();
+
+      setIsCreateAccessoryOpen(false);
+      // Reset form
+      setNewAccessory({
+        badgeId: '',
+        nameEn: '',
+        nameZh: '',
+        descriptionEn: '',
+        descriptionZh: '',
+        category: 'cloth',
+        subCategory: 'clothes_Hat',
+        acquisitionMethod: 'purchase',
+        purchaseCost: 0,
+        carbonThreshold: 0,
+        iconUrl: '',
+        iconColorScheme: '#9C27B0',
+        isActive: true
+      });
+    } catch (err) {
+      console.error('Failed to create accessory:', err);
+      alert('Failed to create accessory. Please try again.');
+    }
+  };
+
   const getMethodBadge = (method: AcquisitionMethod) => {
     switch (method) {
       case 'purchase':
@@ -370,14 +438,57 @@ export function CollectiblesManagement() {
   const filteredBadges = badges.filter(badge => {
     const methodMatch = filterMethod === 'all' || badge.acquisitionMethod === filterMethod;
     const categoryMatch = filterBadgeCategory === 'all' || badge.category === filterBadgeCategory;
-    return methodMatch && categoryMatch;
+    const searchMatch = !searchBadgeId || badge.id.toLowerCase().includes(searchBadgeId.toLowerCase());
+    return methodMatch && categoryMatch && searchMatch;
   });
+
+  // Badge 分页计算
+  const totalBadgePages = Math.ceil(filteredBadges.length / ITEMS_PER_PAGE);
+  const paginatedBadges = filteredBadges.slice(
+    (badgePage - 1) * ITEMS_PER_PAGE,
+    badgePage * ITEMS_PER_PAGE
+  );
+
+  // 当过滤器改变时重置页码
+  const handleFilterMethodChange = (value: string) => {
+    setFilterMethod(value);
+    setBadgePage(1);
+    setAccessoryPage(1);
+  };
+
+  const handleFilterBadgeCategoryChange = (value: string) => {
+    setFilterBadgeCategory(value);
+    setBadgePage(1);
+  };
+
+  const handleFilterCategoryChange = (value: string) => {
+    setFilterCategory(value);
+    setAccessoryPage(1);
+  };
+
+  const handleSearchBadgeIdChange = (value: string) => {
+    setSearchBadgeId(value);
+    setBadgePage(1);
+  };
+
+  const handleSearchAccessoryIdChange = (value: string) => {
+    setSearchAccessoryId(value);
+    setAccessoryPage(1);
+  };
 
   const filteredAccessories = accessories.filter(accessory => {
     const methodMatch = filterMethod === 'all' || accessory.acquisitionMethod === filterMethod;
     const categoryMatch = filterCategory === 'all' || accessory.category === filterCategory;
-    return methodMatch && categoryMatch;
+    const searchMatch = !searchAccessoryId || accessory.id.toLowerCase().includes(searchAccessoryId.toLowerCase());
+    return methodMatch && categoryMatch && searchMatch;
   });
+
+  // Accessory 分页计算
+  const totalAccessoryPages = Math.ceil(filteredAccessories.length / ITEMS_PER_PAGE);
+  const paginatedAccessories = filteredAccessories.slice(
+    (accessoryPage - 1) * ITEMS_PER_PAGE,
+    accessoryPage * ITEMS_PER_PAGE
+  );
 
   const totalBadges = badges.length;
   const totalAccessories = accessories.length;
@@ -448,9 +559,22 @@ export function CollectiblesManagement() {
             {/* Filters */}
             <Card className="p-4 mb-4 flex-shrink-0">
               <div className="flex flex-wrap gap-4 items-end">
+                <div className="flex-1 min-w-[200px]">
+                  <Label>Search by Badge ID</Label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
+                    <Input
+                      placeholder="Enter badge ID..."
+                      value={searchBadgeId}
+                      onChange={(e) => handleSearchBadgeIdChange(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                </div>
+
                 <div className="flex-1 min-w-[180px]">
                   <Label>Category</Label>
-                  <Select value={filterBadgeCategory} onValueChange={setFilterBadgeCategory}>
+                  <Select value={filterBadgeCategory} onValueChange={handleFilterBadgeCategoryChange}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -465,7 +589,7 @@ export function CollectiblesManagement() {
 
                 <div className="flex-1 min-w-[180px]">
                   <Label>Acquisition Method</Label>
-                  <Select value={filterMethod} onValueChange={setFilterMethod}>
+                  <Select value={filterMethod} onValueChange={handleFilterMethodChange}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -494,7 +618,7 @@ export function CollectiblesManagement() {
             {/* Badges Grid */}
             <div className="flex-1 overflow-y-auto">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {filteredBadges.map((badge) => (
+                {paginatedBadges.map((badge) => (
                   <Card key={badge.id} className="p-5 hover:shadow-lg transition-shadow">
                     <div className="flex items-center justify-center mb-4">
                       <div className="p-4 rounded-full bg-gray-100">
@@ -557,6 +681,51 @@ export function CollectiblesManagement() {
                   </Card>
                 ))}
               </div>
+
+              {/* Pagination */}
+              {totalBadgePages > 1 && (
+                <div className="flex items-center justify-center gap-4 mt-6 py-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setBadgePage(p => Math.max(1, p - 1))}
+                    disabled={badgePage === 1}
+                  >
+                    <ChevronLeft className="size-4 mr-1" />
+                    Previous
+                  </Button>
+
+                  <div className="flex items-center gap-2">
+                    {Array.from({ length: totalBadgePages }, (_, i) => i + 1).map(page => (
+                      <Button
+                        key={page}
+                        variant={page === badgePage ? "default" : "outline"}
+                        size="sm"
+                        className="w-8 h-8 p-0"
+                        onClick={() => setBadgePage(page)}
+                      >
+                        {page}
+                      </Button>
+                    ))}
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setBadgePage(p => Math.min(totalBadgePages, p + 1))}
+                    disabled={badgePage === totalBadgePages}
+                  >
+                    Next
+                    <ChevronRight className="size-4 ml-1" />
+                  </Button>
+                </div>
+              )}
+
+              {/* Results info */}
+              <div className="text-center text-sm text-gray-500 mt-2">
+                Showing {paginatedBadges.length} of {filteredBadges.length} badges
+                {filteredBadges.length !== badges.length && ` (filtered from ${badges.length} total)`}
+              </div>
             </div>
           </TabsContent>
 
@@ -565,9 +734,22 @@ export function CollectiblesManagement() {
             {/* Filters */}
             <Card className="p-4 mb-4 flex-shrink-0">
               <div className="flex flex-wrap gap-4 items-end">
+                <div className="flex-1 min-w-[200px]">
+                  <Label>Search by Accessory ID</Label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
+                    <Input
+                      placeholder="Enter accessory ID..."
+                      value={searchAccessoryId}
+                      onChange={(e) => handleSearchAccessoryIdChange(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                </div>
+
                 <div className="flex-1 min-w-[180px]">
                   <Label>Category</Label>
-                  <Select value={filterCategory} onValueChange={setFilterCategory}>
+                  <Select value={filterCategory} onValueChange={handleFilterCategoryChange}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -584,7 +766,7 @@ export function CollectiblesManagement() {
 
                 <div className="flex-1 min-w-[180px]">
                   <Label>Acquisition Method</Label>
-                  <Select value={filterMethod} onValueChange={setFilterMethod}>
+                  <Select value={filterMethod} onValueChange={handleFilterMethodChange}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -599,7 +781,10 @@ export function CollectiblesManagement() {
                   </Select>
                 </div>
 
-                <Button className="bg-purple-600 hover:bg-purple-700 text-white gap-2">
+                <Button
+                  className="bg-purple-600 hover:bg-purple-700 text-white gap-2"
+                  onClick={() => setIsCreateAccessoryOpen(true)}
+                >
                   <Dog className="size-4" />
                   Add Accessory
                 </Button>
@@ -609,7 +794,7 @@ export function CollectiblesManagement() {
             {/* Accessories Grid */}
             <div className="flex-1 overflow-y-auto">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {filteredAccessories.map((accessory) => (
+                {paginatedAccessories.map((accessory) => (
                   <Card key={accessory.id} className="overflow-hidden hover:shadow-lg transition-shadow">
                     <div className="relative h-48 bg-gray-100">
                       <ImageWithFallback
@@ -674,6 +859,51 @@ export function CollectiblesManagement() {
                     </div>
                   </Card>
                 ))}
+              </div>
+
+              {/* Pagination */}
+              {totalAccessoryPages > 1 && (
+                <div className="flex items-center justify-center gap-4 mt-6 py-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAccessoryPage(p => Math.max(1, p - 1))}
+                    disabled={accessoryPage === 1}
+                  >
+                    <ChevronLeft className="size-4 mr-1" />
+                    Previous
+                  </Button>
+
+                  <div className="flex items-center gap-2">
+                    {Array.from({ length: totalAccessoryPages }, (_, i) => i + 1).map(page => (
+                      <Button
+                        key={page}
+                        variant={page === accessoryPage ? "default" : "outline"}
+                        size="sm"
+                        className="w-8 h-8 p-0"
+                        onClick={() => setAccessoryPage(page)}
+                      >
+                        {page}
+                      </Button>
+                    ))}
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAccessoryPage(p => Math.min(totalAccessoryPages, p + 1))}
+                    disabled={accessoryPage === totalAccessoryPages}
+                  >
+                    Next
+                    <ChevronRight className="size-4 ml-1" />
+                  </Button>
+                </div>
+              )}
+
+              {/* Results info */}
+              <div className="text-center text-sm text-gray-500 mt-2">
+                Showing {paginatedAccessories.length} of {filteredAccessories.length} accessories
+                {filteredAccessories.length !== accessories.length && ` (filtered from ${accessories.length} total)`}
               </div>
             </div>
           </TabsContent>
@@ -940,6 +1170,170 @@ export function CollectiblesManagement() {
               disabled={!newBadge.badgeId || !newBadge.nameEn}
             >
               Create Badge
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Accessory Dialog */}
+      <Dialog open={isCreateAccessoryOpen} onOpenChange={setIsCreateAccessoryOpen}>
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create New Accessory</DialogTitle>
+            <DialogDescription>
+              Add a new pet accessory to the system
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="new-accessory-id">Accessory ID *</Label>
+                <Input
+                  id="new-accessory-id"
+                  placeholder="e.g., cool_hat_01"
+                  value={newAccessory.badgeId}
+                  onChange={(e) => setNewAccessory({ ...newAccessory, badgeId: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-accessory-subcategory">Sub Category</Label>
+                <Select
+                  value={newAccessory.subCategory}
+                  onValueChange={(value) => setNewAccessory({ ...newAccessory, subCategory: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="clothes_Hat">Hat</SelectItem>
+                    <SelectItem value="clothes_clothing">Clothing</SelectItem>
+                    <SelectItem value="clothes_shoes">Shoes</SelectItem>
+                    <SelectItem value="clothes_accessory">Accessory</SelectItem>
+                    <SelectItem value="clothes_background">Background</SelectItem>
+                    <SelectItem value="clothes_effect">Effect</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="new-accessory-name-en">Name (English) *</Label>
+                <Input
+                  id="new-accessory-name-en"
+                  placeholder="Accessory name in English"
+                  value={newAccessory.nameEn}
+                  onChange={(e) => setNewAccessory({ ...newAccessory, nameEn: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-accessory-name-zh">Name (Chinese)</Label>
+                <Input
+                  id="new-accessory-name-zh"
+                  placeholder="配饰中文名称"
+                  value={newAccessory.nameZh}
+                  onChange={(e) => setNewAccessory({ ...newAccessory, nameZh: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="new-accessory-desc-en">Description (English)</Label>
+                <Textarea
+                  id="new-accessory-desc-en"
+                  placeholder="Description in English"
+                  value={newAccessory.descriptionEn}
+                  onChange={(e) => setNewAccessory({ ...newAccessory, descriptionEn: e.target.value })}
+                  rows={2}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-accessory-desc-zh">Description (Chinese)</Label>
+                <Textarea
+                  id="new-accessory-desc-zh"
+                  placeholder="中文描述"
+                  value={newAccessory.descriptionZh}
+                  onChange={(e) => setNewAccessory({ ...newAccessory, descriptionZh: e.target.value })}
+                  rows={2}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="new-accessory-method">Acquisition Method</Label>
+                <Select
+                  value={newAccessory.acquisitionMethod}
+                  onValueChange={(value) => setNewAccessory({ ...newAccessory, acquisitionMethod: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="purchase">Points Purchase</SelectItem>
+                    <SelectItem value="achievement">Achievement Unlock</SelectItem>
+                    <SelectItem value="task">Task Reward</SelectItem>
+                    <SelectItem value="vip">VIP Exclusive</SelectItem>
+                    <SelectItem value="event">Event Limited</SelectItem>
+                    <SelectItem value="free">Free</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {newAccessory.acquisitionMethod === 'purchase' && (
+                <div className="space-y-2">
+                  <Label htmlFor="new-accessory-price">Price (points)</Label>
+                  <Input
+                    id="new-accessory-price"
+                    type="number"
+                    value={newAccessory.purchaseCost}
+                    onChange={(e) => setNewAccessory({ ...newAccessory, purchaseCost: parseInt(e.target.value) || 0 })}
+                  />
+                </div>
+              )}
+              {newAccessory.acquisitionMethod === 'achievement' && (
+                <div className="space-y-2">
+                  <Label htmlFor="new-accessory-threshold">Carbon Threshold (g)</Label>
+                  <Input
+                    id="new-accessory-threshold"
+                    type="number"
+                    value={newAccessory.carbonThreshold}
+                    onChange={(e) => setNewAccessory({ ...newAccessory, carbonThreshold: parseInt(e.target.value) || 0 })}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="new-accessory-icon-url">Image URL</Label>
+                <Input
+                  id="new-accessory-icon-url"
+                  placeholder="/images/accessories/..."
+                  value={newAccessory.iconUrl}
+                  onChange={(e) => setNewAccessory({ ...newAccessory, iconUrl: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-accessory-icon-color">Theme Color</Label>
+                <Input
+                  id="new-accessory-icon-color"
+                  type="color"
+                  value={newAccessory.iconColorScheme}
+                  onChange={(e) => setNewAccessory({ ...newAccessory, iconColorScheme: e.target.value })}
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateAccessoryOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateAccessory}
+              disabled={!newAccessory.badgeId || !newAccessory.nameEn}
+            >
+              Create Accessory
             </Button>
           </DialogFooter>
         </DialogContent>
