@@ -1,6 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import {
+  getAllBadgeItems,
+  getAllClothItems,
+  getBadgePurchaseStats,
+  updateBadge,
+  deleteBadge,
+  createBadge,
+} from '@/api/collectiblesApi';
+import type { Badge as ApiBadge, BadgePurchaseStat } from '@/api/collectiblesApi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -48,7 +57,8 @@ import {
   Shirt,
   CircleDot,
   Candy,
-  Palette
+  Palette,
+  Trash2
 } from 'lucide-react';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 
@@ -64,7 +74,6 @@ interface BadgeItem {
   requirementDescription: string;
   ownedBy: number;
   category: string;
-  rarity: 'common' | 'rare' | 'epic' | 'legendary';
 }
 
 interface PetAccessory {
@@ -77,360 +86,134 @@ interface PetAccessory {
   price: number;
   requirementDescription: string;
   ownedBy: number;
-  rarity: 'common' | 'rare' | 'epic' | 'legendary';
-  compatiblePets: string[];
 }
 
-export function CollectiblesManagement() {
-  const [badges, setBadges] = useState<BadgeItem[]>([
-    {
-      id: 'B001',
-      name: 'Eco Beginner',
-      description: 'First-time walker badge for completing your first walk',
-      icon: <Footprints className="size-8 text-green-600" />,
-      acquisitionMethod: 'free',
-      price: 0,
-      requirementDescription: 'Complete your first walk',
-      ownedBy: 2456,
-      category: 'Starter Badges',
-      rarity: 'common'
-    },
-    {
-      id: 'B002',
-      name: 'Walking Master',
-      description: 'Achievement badge for reaching 100,000 steps',
-      icon: <Footprints className="size-8 text-blue-600" />,
-      acquisitionMethod: 'achievement',
-      price: 0,
-      requirementDescription: 'Accumulate 100,000 steps',
-      ownedBy: 1234,
-      category: 'Achievement Badges',
-      rarity: 'rare'
-    },
-    {
-      id: 'B003',
-      name: 'Gold Member',
-      description: 'Exclusive prestigious badge for VIP members',
-      icon: <Crown className="size-8 text-yellow-600" />,
-      acquisitionMethod: 'vip',
-      price: 0,
-      requirementDescription: 'Automatically awarded to VIP members',
-      ownedBy: 856,
-      category: 'VIP Badges',
-      rarity: 'epic'
-    },
-    {
-      id: 'B004',
-      name: 'Green Guardian',
-      description: 'Environmental badge for tree planting participation',
-      icon: <Leaf className="size-8 text-green-500" />,
-      acquisitionMethod: 'task',
-      price: 0,
-      requirementDescription: 'Participate in at least one tree planting event',
-      ownedBy: 567,
-      category: 'Event Badges',
-      rarity: 'rare'
-    },
-    {
-      id: 'B005',
-      name: 'Stellar Badge',
-      description: 'Limited edition premium badge, purchasable with points',
-      icon: <Star className="size-8 text-purple-600" />,
-      acquisitionMethod: 'purchase',
-      price: 500,
-      requirementDescription: 'Purchase for 500 points',
-      ownedBy: 432,
-      category: 'Store Badges',
-      rarity: 'rare'
-    },
-    {
-      id: 'B006',
-      name: 'Lightning Warrior',
-      description: 'Perseverance badge for 7-day check-in streak',
-      icon: <Zap className="size-8 text-yellow-500" />,
-      acquisitionMethod: 'achievement',
-      price: 0,
-      requirementDescription: 'Complete walk tasks for 7 consecutive days',
-      ownedBy: 789,
-      category: 'Achievement Badges',
-      rarity: 'rare'
-    },
-    {
-      id: 'B007',
-      name: 'Heartfelt Messenger',
-      description: 'Charity badge for donating points to charity projects',
-      icon: <Heart className="size-8 text-red-500" />,
-      acquisitionMethod: 'task',
-      price: 0,
-      requirementDescription: 'Donate at least 1000 points',
-      ownedBy: 345,
-      category: 'Charity Badges',
-      rarity: 'epic'
-    },
-    {
-      id: 'B008',
-      name: 'Diamond Shield',
-      description: 'Top-tier badge exclusive to advanced VIP members',
-      icon: <Shield className="size-8 text-blue-400" />,
-      acquisitionMethod: 'vip',
-      price: 0,
-      requirementDescription: 'Exclusive to annual VIP members',
-      ownedBy: 234,
-      category: 'VIP Badges',
-      rarity: 'legendary'
-    },
-    {
-      id: 'B009',
-      name: 'Passionate Flame',
-      description: 'Limited edition event badge',
-      icon: <Flame className="size-8 text-orange-500" />,
-      acquisitionMethod: 'event',
-      price: 0,
-      requirementDescription: 'Participate in the 2026 Spring Special Event',
-      ownedBy: 678,
-      category: 'Event Badges',
-      rarity: 'epic'
-    },
-    {
-      id: 'B010',
-      name: 'Social Master',
-      description: 'Promotion badge for inviting 10 friends to join',
-      icon: <Users className="size-8 text-indigo-600" />,
-      acquisitionMethod: 'achievement',
-      price: 0,
-      requirementDescription: 'Successfully invite 10 friends to register',
-      ownedBy: 456,
-      category: 'Achievement Badges',
-      rarity: 'rare'
-    },
-    {
-      id: 'B011',
-      name: 'Glory Medal',
-      description: 'Luxury badge, limited release in the point store',
-      icon: <Medal className="size-8 text-amber-600" />,
-      acquisitionMethod: 'purchase',
-      price: 1200,
-      requirementDescription: 'Purchase for 1200 points',
-      ownedBy: 198,
-      category: 'Store Badges',
-      rarity: 'epic'
-    },
-    {
-      id: 'B012',
-      name: 'Shimmering Star',
-      description: 'Top collection badge, premium exclusive',
-      icon: <Sparkles className="size-8 text-pink-500" />,
-      acquisitionMethod: 'purchase',
-      price: 2000,
-      requirementDescription: 'Purchase for 2000 points',
-      ownedBy: 89,
-      category: 'Store Badges',
-      rarity: 'legendary'
-    },
-    {
-      id: 'B013',
-      name: 'Peak Climber',
-      description: 'Achievement badge for completing annual walk goals',
-      icon: <Mountain className="size-8 text-gray-700" />,
-      acquisitionMethod: 'achievement',
-      price: 0,
-      requirementDescription: 'Accumulate 5 million steps annually',
-      ownedBy: 123,
-      category: 'Achievement Badges',
-      rarity: 'legendary'
-    },
-    {
-      id: 'B014',
-      name: 'Champion Trophy',
-      description: 'Honor badge for ranking first in the leaderboard',
-      icon: <Trophy className="size-8 text-yellow-500" />,
-      acquisitionMethod: 'achievement',
-      price: 0,
-      requirementDescription: 'Achieve first place in the monthly leaderboard',
-      ownedBy: 45,
-      category: 'Competitive Badges',
-      rarity: 'legendary'
-    },
-    {
-      id: 'B015',
-      name: 'Glory Light',
-      description: 'Advanced badge limited to special events',
-      icon: <Award className="size-8 text-cyan-500" />,
-      acquisitionMethod: 'event',
-      price: 0,
-      requirementDescription: 'Participate in the anniversary celebration event',
-      ownedBy: 567,
-      category: 'Event Badges',
-      rarity: 'epic'
-    }
-  ]);
+// 根据 subCategory 获取图标
+const getIconBySubCategory = (subCategory: string, colorScheme: string) => {
+  const color = colorScheme || '#666';
+  const style = { color };
 
-  const [accessories, setAccessories] = useState<PetAccessory[]>([
-    {
-      id: 'PA001',
-      name: 'Red Baseball Cap',
-      description: 'Fashionable red baseball cap, making your pet cooler',
-      imageUrl: 'https://images.unsplash.com/photo-1647528458336-c0eb575af956?w=400',
-      category: 'hat',
-      acquisitionMethod: 'purchase',
-      price: 300,
-      requirementDescription: 'Purchase for 300 points',
-      ownedBy: 1234,
-      rarity: 'common',
-      compatiblePets: ['Dog', 'Cat', 'Rabbit']
-    },
-    {
-      id: 'PA002',
-      name: 'Crown Hat',
-      description: 'VIP exclusive golden crown, showcasing noble status',
-      imageUrl: 'https://images.unsplash.com/photo-1748616789793-b44842f85fa4?w=400',
-      category: 'hat',
-      acquisitionMethod: 'vip',
-      price: 0,
-      requirementDescription: 'Exclusive to VIP members',
-      ownedBy: 456,
-      rarity: 'legendary',
-      compatiblePets: ['Dog', 'Cat', 'Rabbit', 'Panda']
-    },
-    {
-      id: 'PA003',
-      name: 'Sporty Vest',
-      description: 'Comfortable sporty style vest',
-      imageUrl: 'https://images.unsplash.com/photo-1633933061665-bdd0f626e59c?w=400',
-      category: 'clothing',
-      acquisitionMethod: 'purchase',
-      price: 500,
-      requirementDescription: 'Purchase for 500 points',
-      ownedBy: 892,
-      rarity: 'common',
-      compatiblePets: ['Dog', 'Cat']
-    },
-    {
-      id: 'PA004',
-      name: 'Superhero Cape',
-      description: 'Cool superhero style cape',
-      imageUrl: 'https://images.unsplash.com/photo-1596284274000-7d3eca888e3e?w=400',
-      category: 'clothing',
-      acquisitionMethod: 'achievement',
-      price: 0,
-      requirementDescription: 'Complete 100 walk tasks',
-      ownedBy: 567,
-      rarity: 'epic',
-      compatiblePets: ['Dog', 'Cat', 'Rabbit', 'Panda']
-    },
-    {
-      id: 'PA005',
-      name: 'Pink Bow',
-      description: 'Cute pink bow decoration',
-      imageUrl: 'https://images.unsplash.com/photo-1535551393484-1a1907f51759?w=400',
-      category: 'accessory',
-      acquisitionMethod: 'purchase',
-      price: 200,
-      requirementDescription: 'Purchase for 200 points',
-      ownedBy: 1567,
-      rarity: 'common',
-      compatiblePets: ['Cat', 'Rabbit']
-    },
-    {
-      id: 'PA006',
-      name: 'Star Glasses',
-      description: 'Fashionable star-shaped glasses',
-      imageUrl: 'https://images.unsplash.com/photo-1760843496434-fc41a23ddec9?w=400',
-      category: 'accessory',
-      acquisitionMethod: 'purchase',
-      price: 400,
-      requirementDescription: 'Purchase for 400 points',
-      ownedBy: 723,
-      rarity: 'rare',
-      compatiblePets: ['Dog', 'Cat', 'Rabbit']
-    },
-    {
-      id: 'PA007',
-      name: 'Rainbow Background',
-      description: 'Luminous rainbow-themed background',
-      imageUrl: 'https://images.unsplash.com/photo-1533984649377-c20fc524425b?w=400',
-      category: 'background',
-      acquisitionMethod: 'purchase',
-      price: 600,
-      requirementDescription: 'Purchase for 600 points',
-      ownedBy: 934,
-      rarity: 'rare',
-      compatiblePets: ['Dog', 'Cat', 'Rabbit', 'Panda']
-    },
-    {
-      id: 'PA008',
-      name: 'Starry Background',
-      description: 'VIP exclusive romantic starry background',
-      imageUrl: 'https://images.unsplash.com/photo-1641895958846-19dab3471449?w=400',
-      category: 'background',
-      acquisitionMethod: 'vip',
-      price: 0,
-      requirementDescription: 'Exclusive to VIP members',
-      ownedBy: 345,
-      rarity: 'epic',
-      compatiblePets: ['Dog', 'Cat', 'Rabbit', 'Panda']
-    },
-    {
-      id: 'PA009',
-      name: 'Sparkle Effect',
-      description: 'Shimmering special effect',
-      imageUrl: 'https://images.unsplash.com/photo-1768326947711-5551d8ea9cf6?w=400',
-      category: 'effect',
-      acquisitionMethod: 'achievement',
-      price: 0,
-      requirementDescription: 'Reach top 10 in the monthly step leaderboard',
-      ownedBy: 234,
-      rarity: 'epic',
-      compatiblePets: ['Dog', 'Cat', 'Rabbit', 'Panda']
-    },
-    {
-      id: 'PA010',
-      name: 'Heart Effect',
-      description: 'Cute effect surrounded by hearts',
-      imageUrl: 'https://images.unsplash.com/photo-1548544099-a89e27f73a84?w=400',
-      category: 'effect',
-      acquisitionMethod: 'event',
-      price: 0,
-      requirementDescription: 'Obtained by participating in Valentine\'s Day event',
-      ownedBy: 678,
-      rarity: 'rare',
-      compatiblePets: ['Dog', 'Cat', 'Rabbit', 'Panda']
-    },
-    {
-      id: 'PA011',
-      name: 'Santa Hat',
-      description: 'Cute Santa hat limited to festivals',
-      imageUrl: 'https://images.unsplash.com/photo-1608492194133-2773feac8af0?w=400',
-      category: 'hat',
-      acquisitionMethod: 'event',
-      price: 0,
-      requirementDescription: 'Obtained by participating in Christmas event',
-      ownedBy: 1123,
-      rarity: 'rare',
-      compatiblePets: ['Dog', 'Cat', 'Rabbit', 'Panda']
-    },
-    {
-      id: 'PA012',
-      name: 'Diamond Necklace',
-      description: 'Luxurious diamond necklace accessory',
-      imageUrl: 'https://images.unsplash.com/photo-1624929090883-3d2f7874a019?w=400',
-      category: 'accessory',
-      acquisitionMethod: 'purchase',
-      price: 1500,
-      requirementDescription: 'Purchase for 1500 points',
-      ownedBy: 156,
-      rarity: 'legendary',
-      compatiblePets: ['Dog', 'Cat', 'Rabbit']
+  if (subCategory?.includes('VIP')) return <Crown className="size-8" style={style} />;
+  if (subCategory?.includes('rank')) return <Trophy className="size-8" style={style} />;
+  if (subCategory?.includes('normal')) return <Award className="size-8" style={style} />;
+  if (subCategory?.includes('Hat')) return <Crown className="size-8" style={style} />;
+  if (subCategory?.includes('clothing')) return <Shirt className="size-8" style={style} />;
+  if (subCategory?.includes('shoes')) return <Footprints className="size-8" style={style} />;
+  return <Star className="size-8" style={style} />;
+};
+
+// 将后端 Badge 转换为前端 BadgeItem
+const mapApiBadgeToBadgeItem = (apiBadge: ApiBadge, ownedCount: number): BadgeItem => ({
+  id: apiBadge.badgeId,
+  name: apiBadge.name?.en || apiBadge.name?.zh || 'Unknown',
+  description: apiBadge.description?.en || apiBadge.description?.zh || '',
+  icon: getIconBySubCategory(apiBadge.subCategory, apiBadge.icon?.colorScheme),
+  acquisitionMethod: (apiBadge.acquisitionMethod || 'free') as AcquisitionMethod,
+  price: apiBadge.purchaseCost || 0,
+  requirementDescription: apiBadge.description?.en || apiBadge.description?.zh || '',
+  ownedBy: ownedCount,
+  category: apiBadge.subCategory || 'General'
+});
+
+// 将后端 Badge (cloth) 转换为前端 PetAccessory
+const mapApiBadgeToPetAccessory = (apiBadge: ApiBadge, ownedCount: number): PetAccessory => {
+  // 从 subCategory 推断 category
+  let category: PetAccessory['category'] = 'accessory';
+  if (apiBadge.subCategory?.toLowerCase().includes('hat')) category = 'hat';
+  else if (apiBadge.subCategory?.toLowerCase().includes('clothing')) category = 'clothing';
+  else if (apiBadge.subCategory?.toLowerCase().includes('shoes')) category = 'accessory';
+  else if (apiBadge.subCategory?.toLowerCase().includes('background')) category = 'background';
+  else if (apiBadge.subCategory?.toLowerCase().includes('effect')) category = 'effect';
+
+  return {
+    id: apiBadge.badgeId,
+    name: apiBadge.name?.en || apiBadge.name?.zh || 'Unknown',
+    description: apiBadge.description?.en || apiBadge.description?.zh || '',
+    imageUrl: apiBadge.icon?.url || '',
+    category,
+    acquisitionMethod: (apiBadge.acquisitionMethod || 'free') as AcquisitionMethod,
+    price: apiBadge.purchaseCost || 0,
+    requirementDescription: apiBadge.description?.en || apiBadge.description?.zh || '',
+    ownedBy: ownedCount
+  };
+};
+
+export function CollectiblesManagement() {
+  const [badges, setBadges] = useState<BadgeItem[]>([]);
+  const [accessories, setAccessories] = useState<PetAccessory[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [purchaseStats, setPurchaseStats] = useState<BadgePurchaseStat[]>([]);
+
+  // 加载数据
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // 并行获取数据
+      const [badgeData, clothData, stats] = await Promise.all([
+        getAllBadgeItems(),
+        getAllClothItems(),
+        getBadgePurchaseStats()
+      ]);
+
+      setPurchaseStats(stats);
+
+      // 创建 ownedBy 映射
+      const ownedMap = new Map<string, number>();
+      stats.forEach(stat => ownedMap.set(stat.badgeId, stat.count));
+
+      // 转换徽章数据
+      const mappedBadges = badgeData.map(b =>
+        mapApiBadgeToBadgeItem(b, ownedMap.get(b.badgeId) || 0)
+      );
+      setBadges(mappedBadges);
+
+      // 转换服饰数据
+      const mappedAccessories = clothData.map(c =>
+        mapApiBadgeToPetAccessory(c, ownedMap.get(c.badgeId) || 0)
+      );
+      setAccessories(mappedAccessories);
+
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load data');
+      console.error('Failed to load collectibles:', err);
+    } finally {
+      setLoading(false);
     }
-  ]);
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
 
   const [editingBadge, setEditingBadge] = useState<BadgeItem | null>(null);
   const [editingAccessory, setEditingAccessory] = useState<PetAccessory | null>(null);
   const [isBadgeEditOpen, setIsBadgeEditOpen] = useState(false);
   const [isAccessoryEditOpen, setIsAccessoryEditOpen] = useState(false);
   const [filterMethod, setFilterMethod] = useState<string>('all');
-  const [filterRarity, setFilterRarity] = useState<string>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [filterBadgeCategory, setFilterBadgeCategory] = useState<string>('all');
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<{ id: string; type: 'badge' | 'accessory'; name: string } | null>(null);
+  const [isCreateBadgeOpen, setIsCreateBadgeOpen] = useState(false);
+  const [newBadge, setNewBadge] = useState({
+    badgeId: '',
+    nameEn: '',
+    nameZh: '',
+    descriptionEn: '',
+    descriptionZh: '',
+    category: 'badge',
+    subCategory: 'normal badge',
+    acquisitionMethod: 'purchase',
+    purchaseCost: 0,
+    carbonThreshold: 0,
+    iconUrl: '',
+    iconColorScheme: '#4CAF50',
+    isActive: true
+  });
 
   const handleEditBadge = (badge: BadgeItem) => {
     setEditingBadge({ ...badge });
@@ -458,6 +241,70 @@ export function CollectiblesManagement() {
     }
   };
 
+  const handleDeleteConfirm = async () => {
+    if (!itemToDelete) return;
+
+    try {
+      await deleteBadge(itemToDelete.id);
+
+      if (itemToDelete.type === 'badge') {
+        setBadges(badges.filter(b => b.id !== itemToDelete.id));
+      } else {
+        setAccessories(accessories.filter(a => a.id !== itemToDelete.id));
+      }
+
+      setDeleteConfirmOpen(false);
+      setItemToDelete(null);
+    } catch (err) {
+      console.error('Failed to delete:', err);
+      alert('Failed to delete item. Please try again.');
+    }
+  };
+
+  const handleCreateBadge = async () => {
+    try {
+      const badgeData = {
+        badgeId: newBadge.badgeId,
+        name: { en: newBadge.nameEn, zh: newBadge.nameZh },
+        description: { en: newBadge.descriptionEn, zh: newBadge.descriptionZh },
+        category: newBadge.category,
+        subCategory: newBadge.subCategory,
+        acquisitionMethod: newBadge.acquisitionMethod,
+        purchaseCost: newBadge.acquisitionMethod === 'purchase' ? newBadge.purchaseCost : null,
+        carbonThreshold: newBadge.acquisitionMethod === 'achievement' ? newBadge.carbonThreshold : null,
+        icon: { url: newBadge.iconUrl, colorScheme: newBadge.iconColorScheme },
+        isActive: newBadge.isActive,
+        createdAt: new Date().toISOString()
+      };
+
+      await createBadge(badgeData);
+
+      // Reload data
+      await loadData();
+
+      setIsCreateBadgeOpen(false);
+      // Reset form
+      setNewBadge({
+        badgeId: '',
+        nameEn: '',
+        nameZh: '',
+        descriptionEn: '',
+        descriptionZh: '',
+        category: 'badge',
+        subCategory: 'normal badge',
+        acquisitionMethod: 'purchase',
+        purchaseCost: 0,
+        carbonThreshold: 0,
+        iconUrl: '',
+        iconColorScheme: '#4CAF50',
+        isActive: true
+      });
+    } catch (err) {
+      console.error('Failed to create badge:', err);
+      alert('Failed to create badge. Please try again.');
+    }
+  };
+
   const getMethodBadge = (method: AcquisitionMethod) => {
     switch (method) {
       case 'purchase':
@@ -472,21 +319,6 @@ export function CollectiblesManagement() {
         return <Badge className="bg-pink-100 text-pink-700">Event Limited</Badge>;
       case 'free':
         return <Badge className="bg-gray-100 text-gray-700">Free</Badge>;
-      default:
-        return null;
-    }
-  };
-
-  const getRarityBadge = (rarity: string) => {
-    switch (rarity) {
-      case 'common':
-        return <Badge variant="outline" className="border-gray-400 text-gray-700">Common</Badge>;
-      case 'rare':
-        return <Badge variant="outline" className="border-blue-400 text-blue-700">Rare</Badge>;
-      case 'epic':
-        return <Badge variant="outline" className="border-purple-400 text-purple-700">Epic</Badge>;
-      case 'legendary':
-        return <Badge variant="outline" className="border-yellow-400 text-yellow-700">Legendary</Badge>;
       default:
         return null;
     }
@@ -534,15 +366,13 @@ export function CollectiblesManagement() {
 
   const filteredBadges = badges.filter(badge => {
     const methodMatch = filterMethod === 'all' || badge.acquisitionMethod === filterMethod;
-    const rarityMatch = filterRarity === 'all' || badge.rarity === filterRarity;
-    return methodMatch && rarityMatch;
+    return methodMatch;
   });
 
   const filteredAccessories = accessories.filter(accessory => {
     const methodMatch = filterMethod === 'all' || accessory.acquisitionMethod === filterMethod;
-    const rarityMatch = filterRarity === 'all' || accessory.rarity === filterRarity;
     const categoryMatch = filterCategory === 'all' || accessory.category === filterCategory;
-    return methodMatch && rarityMatch && categoryMatch;
+    return methodMatch && categoryMatch;
   });
 
   const totalBadges = badges.length;
@@ -632,22 +462,6 @@ export function CollectiblesManagement() {
                   </Select>
                 </div>
 
-                <div className="flex-1 min-w-[200px]">
-                  <Label>Rarity</Label>
-                  <Select value={filterRarity} onValueChange={setFilterRarity}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Rarities</SelectItem>
-                      <SelectItem value="common">Common</SelectItem>
-                      <SelectItem value="rare">Rare</SelectItem>
-                      <SelectItem value="epic">Epic</SelectItem>
-                      <SelectItem value="legendary">Legendary</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
                 <Button className="bg-blue-600 hover:bg-blue-700 text-white gap-2">
                   <Award className="size-4" />
                   Add Badge
@@ -661,12 +475,7 @@ export function CollectiblesManagement() {
                 {filteredBadges.map((badge) => (
                   <Card key={badge.id} className="p-5 hover:shadow-lg transition-shadow">
                     <div className="flex items-center justify-center mb-4">
-                      <div className={`p-4 rounded-full ${
-                        badge.rarity === 'legendary' ? 'bg-gradient-to-br from-yellow-100 to-yellow-200' :
-                        badge.rarity === 'epic' ? 'bg-gradient-to-br from-purple-100 to-purple-200' :
-                        badge.rarity === 'rare' ? 'bg-gradient-to-br from-blue-100 to-blue-200' :
-                        'bg-gray-100'
-                      }`}>
+                      <div className="p-4 rounded-full bg-gray-100">
                         {badge.icon}
                       </div>
                     </div>
@@ -674,7 +483,6 @@ export function CollectiblesManagement() {
                     <div className="text-center mb-3">
                       <h3 className="font-bold text-gray-900 mb-1">{badge.name}</h3>
                       <div className="flex items-center justify-center gap-2 mb-2">
-                        {getRarityBadge(badge.rarity)}
                         {getMethodBadge(badge.acquisitionMethod)}
                       </div>
                       <p className="text-sm text-gray-600 mb-2">
@@ -704,14 +512,26 @@ export function CollectiblesManagement() {
                       </div>
                     </div>
 
-                    <Button
-                      className="w-full gap-2"
-                      variant="outline"
-                      onClick={() => handleEditBadge(badge)}
-                    >
-                      <Edit className="size-4" />
-                      Edit Settings
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        className="flex-1 gap-2"
+                        variant="outline"
+                        onClick={() => handleEditBadge(badge)}
+                      >
+                        <Edit className="size-4" />
+                        Edit
+                      </Button>
+                      <Button
+                        className="gap-2"
+                        variant="outline"
+                        onClick={() => {
+                          setItemToDelete({ id: badge.id, type: 'badge', name: badge.name });
+                          setDeleteConfirmOpen(true);
+                        }}
+                      >
+                        <Trash2 className="size-4 text-red-500" />
+                      </Button>
+                    </div>
                   </Card>
                 ))}
               </div>
@@ -757,22 +577,6 @@ export function CollectiblesManagement() {
                   </Select>
                 </div>
 
-                <div className="flex-1 min-w-[180px]">
-                  <Label>Rarity</Label>
-                  <Select value={filterRarity} onValueChange={setFilterRarity}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Rarities</SelectItem>
-                      <SelectItem value="common">Common</SelectItem>
-                      <SelectItem value="rare">Rare</SelectItem>
-                      <SelectItem value="epic">Epic</SelectItem>
-                      <SelectItem value="legendary">Legendary</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
                 <Button className="bg-purple-600 hover:bg-purple-700 text-white gap-2">
                   <Dog className="size-4" />
                   Add Accessory
@@ -791,9 +595,6 @@ export function CollectiblesManagement() {
                         alt={accessory.name}
                         className="w-full h-full object-cover"
                       />
-                      <div className="absolute top-2 right-2">
-                        {getRarityBadge(accessory.rarity)}
-                      </div>
                       <div className="absolute top-2 left-2 flex items-center gap-1 bg-white/90 backdrop-blur-sm rounded-full px-2 py-1">
                         {getCategoryIcon(accessory.category)}
                         <span className="text-xs font-medium">{getCategoryLabel(accessory.category)}</span>
@@ -826,27 +627,28 @@ export function CollectiblesManagement() {
                           <span className="text-sm text-gray-600">Owners:</span>
                           <span className="font-semibold text-gray-900">{accessory.ownedBy}</span>
                         </div>
-
-                        <div className="pt-2 border-t">
-                          <p className="text-xs text-gray-600 mb-1">Compatible Pets:</p>
-                          <div className="flex flex-wrap gap-1">
-                            {accessory.compatiblePets.map((pet, idx) => (
-                              <Badge key={idx} variant="outline" className="text-xs">
-                                {pet}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
                       </div>
 
-                      <Button
-                        className="w-full gap-2"
-                        variant="outline"
-                        onClick={() => handleEditAccessory(accessory)}
-                      >
-                        <Edit className="size-4" />
-                        Edit Settings
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          className="flex-1 gap-2"
+                          variant="outline"
+                          onClick={() => handleEditAccessory(accessory)}
+                        >
+                          <Edit className="size-4" />
+                          Edit
+                        </Button>
+                        <Button
+                          className="gap-2"
+                          variant="outline"
+                          onClick={() => {
+                            setItemToDelete({ id: accessory.id, type: 'accessory', name: accessory.name });
+                            setDeleteConfirmOpen(true);
+                          }}
+                        >
+                          <Trash2 className="size-4 text-red-500" />
+                        </Button>
+                      </div>
                     </div>
                   </Card>
                 ))}
@@ -914,6 +716,26 @@ export function CollectiblesManagement() {
             </Button>
             <Button onClick={handleSaveBadgeEdit}>
               Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Confirm Delete</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{itemToDelete?.name}"? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteConfirm}>
+              Delete
             </Button>
           </DialogFooter>
         </DialogContent>
