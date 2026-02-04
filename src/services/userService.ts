@@ -22,6 +22,7 @@ export interface UserPreferences {
 }
 
 export interface UserVip {
+    startDate: string | null;
     expiryDate: string | null;
     plan: string | null;
     autoRenew: boolean;
