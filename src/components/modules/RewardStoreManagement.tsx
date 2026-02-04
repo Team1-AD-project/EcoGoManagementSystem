@@ -501,7 +501,7 @@ export function RewardStoreManagement() {
               )}
 
               {/* Orders Pagination */}
-              <div className="p-4 border-t bg-gray-50 flex items-center justify-between">
+              <div className="p-4 border-t bg-gray-50 flex items-center justify-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
@@ -510,9 +510,30 @@ export function RewardStoreManagement() {
                 >
                   Previous
                 </Button>
-                <span className="text-sm text-gray-600">
-                  Page {ordersPage} of {ordersTotalPages}
-                </span>
+
+                <div className="flex items-center gap-1">
+                  {ordersTotalPages > 0 && Array.from({ length: Math.min(5, ordersTotalPages) }, (_, i) => {
+                    let p = i + 1;
+                    if (ordersTotalPages > 5) {
+                      if (ordersPage <= 3) p = i + 1;
+                      else if (ordersPage >= ordersTotalPages - 2) p = ordersTotalPages - 4 + i;
+                      else p = ordersPage - 2 + i;
+                    }
+
+                    return (
+                      <Button
+                        key={p}
+                        variant={p === ordersPage ? "default" : "outline"}
+                        size="sm"
+                        className="w-8 h-8 p-0"
+                        onClick={() => setOrdersPage(p)}
+                      >
+                        {p}
+                      </Button>
+                    );
+                  })}
+                </div>
+
                 <Button
                   variant="outline"
                   size="sm"
