@@ -97,7 +97,7 @@ export function PointsTransactionManagement() {
 
   const getTransactionLabel = (source: string) => {
     switch (source) {
-      case 'trip': return 'Walk Earnings';
+      case 'trip': return 'Trip Earnings';
       case 'vip': return 'VIP Membership';
       case 'store': return 'Item Purchase';
       case 'badge': return 'Badge Purchase';
@@ -175,7 +175,7 @@ export function PointsTransactionManagement() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
                       <span className="font-semibold text-gray-900 truncate text-sm">
-                        {user.nickname}
+                        {user.nickname} <span className="text-xs text-gray-500 font-normal">({user.userid})</span>
                       </span>
                       {user.vip?.active && (
                         <Badge variant="secondary" className="bg-purple-100 text-purple-700 text-[10px] h-5 px-1.5">VIP</Badge>
