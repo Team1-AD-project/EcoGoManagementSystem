@@ -6,14 +6,13 @@ interface ApiResponse<T> {
   data: T;
 }
 
-export interface Ranking {
-  id: string;
-  period: string;
-  rank: number;
+export interface LeaderboardRankingDto {
   userId: string;
   nickname: string;
+  rank: number;
   carbonSaved: number;
   isVip: boolean;
+  rewardPoints: number;
 }
 
 export interface Page<T> {
@@ -25,19 +24,28 @@ export interface Page<T> {
 }
 
 export interface LeaderboardStatsDto {
-  rankingsPage: Page<Ranking>;
+  rankingsPage: Page<LeaderboardRankingDto>;
   totalCarbonSaved: number;
   totalVipUsers: number;
+  totalRewardsDistributed: number;
 }
 
-export async function getLeaderboardPeriods(): Promise<string[]> {
-  const response = await api.get<ApiResponse<string[]>>('/leaderboards/periods');
-  return response.data.data;
-}
+export type LeaderboardType = 'DAILY' | 'MONTHLY';
 
-export async function getRankingsByPeriod(period: string, name: string = '', page: number = 0, size: number = 10): Promise<LeaderboardStatsDto> {
+/**
+ * Get rankings by type and optional date.
+ * Admin can pass date (DAILY: "2026-02-07", MONTHLY: "2026-02").
+ * Empty date = current day/month.
+ */
+export async function getRankingsByType(
+  type: LeaderboardType,
+  date: string = '',
+  name: string = '',
+  page: number = 0,
+  size: number = 10
+): Promise<LeaderboardStatsDto> {
   const response = await api.get<ApiResponse<LeaderboardStatsDto>>('/leaderboards/rankings', {
-    params: { period, name, page, size },
+    params: { type, date, name, page, size },
   });
   return response.data.data;
 }

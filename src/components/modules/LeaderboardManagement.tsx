@@ -4,18 +4,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   Trophy,
   Medal,
   Crown,
   TrendingUp,
-  Calendar,
   Users,
   Gift,
   ChevronLeft,
@@ -25,27 +17,22 @@ import {
   RefreshCw
 } from 'lucide-react';
 import {
-  getLeaderboardPeriods,
-  getRankingsByPeriod,
-  type Ranking,
-  type LeaderboardStatsDto
+  getRankingsByType,
+  type LeaderboardRankingDto,
+  type LeaderboardStatsDto,
+  type LeaderboardType
 } from '@/api/leaderboardApi';
 import { useDebounce } from '@/hooks/useDebounce';
 
-// Frontend extended ranking type
-interface UserRanking extends Ranking {
-  username?: string;
+interface UserRanking extends LeaderboardRankingDto {
   avatar?: string;
-  points?: number;
-  avgDailyCarbonSaved?: number;
 }
 
-// Default avatar list
 const AVATARS = ['👑', '🏃', '🌟', '💪', '🏅', '🌿', '⭐', '🎯', '🔥', '💎'];
 
 export function LeaderboardManagement() {
-  const [periods, setPeriods] = useState<string[]>([]);
-  const [selectedPeriod, setSelectedPeriod] = useState<string>('');
+  const [selectedType, setSelectedType] = useState<LeaderboardType>('DAILY');
+  const [selectedDate, setSelectedDate] = useState(''); // Admin date picker value
   const [stats, setStats] = useState<LeaderboardStatsDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,45 +40,65 @@ export function LeaderboardManagement() {
   const [currentPage, setCurrentPage] = useState(0);
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
-  // Load period list
-  const loadPeriods = async () => {
-    try {
-      const data = await getLeaderboardPeriods();
-      setPeriods(data);
-      if (data.length > 0 && !selectedPeriod) {
-        setSelectedPeriod(data[0]);
-      }
-    } catch (err) {
-      console.error('Error loading periods:', err);
+  // Get today/this month as default display label
+  const getDateLabel = () => {
+    if (selectedDate) {
+      return selectedDate;
     }
+    if (selectedType === 'DAILY') {
+      return new Date().toISOString().split('T')[0]; // "2026-02-07"
+    }
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`; // "2026-02"
   };
 
-  // Load leaderboard data
-  const loadRankings = useCallback(async (period: string, search: string, page: number) => {
-    if (!period) return;
+  // Navigate date: -1 = previous, +1 = next
+  const navigateDate = (direction: number) => {
+    const current = selectedDate || getDateLabel();
+    let newDate: string;
 
+    if (selectedType === 'DAILY') {
+      const d = new Date(current);
+      d.setDate(d.getDate() + direction);
+      newDate = d.toISOString().split('T')[0];
+    } else {
+      const [year, month] = current.split('-').map(Number);
+      const d = new Date(year, month - 1 + direction, 1);
+      newDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    setSelectedDate(newDate);
+    setCurrentPage(0);
+  };
+
+  // Check if "next" should be disabled (can't go beyond today/this month)
+  const canGoNext = () => {
+    const current = selectedDate || getDateLabel();
+    const today = new Date().toISOString().split('T')[0];
+    const thisMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+
+    if (selectedType === 'DAILY') return current < today;
+    return current < thisMonth;
+  };
+
+  const loadRankings = useCallback(async (type: LeaderboardType, date: string, search: string, page: number) => {
     try {
       setLoading(true);
       setError(null);
-      const data = await getRankingsByPeriod(period, search, page, 10);
+      const data = await getRankingsByType(type, date, search, page, 10);
 
-      const enrichedContent: UserRanking[] = data.rankingsPage.content.map((ranking, index) => ({
+      const enrichedContent: UserRanking[] = data.rankingsPage.content.map((ranking) => ({
         ...ranking,
-        username: ranking.nickname || `User ${ranking.userId}`,
         avatar: AVATARS[(ranking.rank - 1) % AVATARS.length],
-        points: ranking.carbonSaved ? Math.floor(ranking.carbonSaved / 10) : 0,
-        avgDailyCarbonSaved: ranking.carbonSaved ? Math.floor(ranking.carbonSaved / 7) : 0,
       }));
 
-      const enrichedData: LeaderboardStatsDto = {
+      setStats({
         ...data,
         rankingsPage: {
           ...data.rankingsPage,
           content: enrichedContent,
         },
-      };
-
-      setStats(enrichedData);
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load rankings');
       console.error('Error loading rankings:', err);
@@ -101,14 +108,15 @@ export function LeaderboardManagement() {
   }, []);
 
   useEffect(() => {
-    loadPeriods();
-  }, []);
+    loadRankings(selectedType, selectedDate, debouncedSearchQuery, currentPage);
+  }, [selectedType, selectedDate, debouncedSearchQuery, currentPage, loadRankings]);
 
-  useEffect(() => {
-    if (selectedPeriod) {
-      loadRankings(selectedPeriod, debouncedSearchQuery, currentPage);
-    }
-  }, [selectedPeriod, debouncedSearchQuery, currentPage, loadRankings]);
+  // Reset date and page when switching type
+  const handleTypeChange = (type: LeaderboardType) => {
+    setSelectedType(type);
+    setSelectedDate('');
+    setCurrentPage(0);
+  };
 
   const getRankBadge = (rank: number) => {
     if (rank === 1) return <Crown className="size-6 text-yellow-500" />;
@@ -118,35 +126,11 @@ export function LeaderboardManagement() {
   };
 
   const rankingsPage = stats?.rankingsPage;
-  const rankings = rankingsPage?.content || [];
-  
+  const rankings = (rankingsPage?.content || []) as UserRanking[];
   const totalParticipants = stats?.rankingsPage.totalElements || 0;
   const avgCarbonSaved = totalParticipants > 0
     ? Math.round((stats?.totalCarbonSaved || 0) / totalParticipants)
     : 0;
-
-  const currentPeriodIndex = periods.indexOf(selectedPeriod);
-  const canGoPreviousPeriod = currentPeriodIndex < periods.length - 1;
-  const canGoNextPeriod = currentPeriodIndex > 0;
-
-  const goToPreviousPeriod = () => {
-    if (canGoPreviousPeriod) {
-        setCurrentPage(0);
-        setSelectedPeriod(periods[currentPeriodIndex + 1]);
-    }
-  };
-
-  const goToNextPeriod = () => {
-    if (canGoNextPeriod) {
-        setCurrentPage(0);
-        setSelectedPeriod(periods[currentPeriodIndex - 1]);
-    }
-  };
-  
-  const handlePageChange = (newPage: number) => {
-    setCurrentPage(newPage);
-  };
-
 
   if (loading && !stats) {
     return (
@@ -166,12 +150,12 @@ export function LeaderboardManagement() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Leaderboard Management</h2>
-            <p className="text-gray-600 mt-1">View and manage weekly user rankings and reward distribution</p>
+            <p className="text-gray-600 mt-1">View real-time user carbon savings rankings and reward distribution</p>
           </div>
           <Button
             variant="outline"
             size="sm"
-            onClick={() => loadRankings(selectedPeriod, debouncedSearchQuery, currentPage)}
+            onClick={() => loadRankings(selectedType, selectedDate, debouncedSearchQuery, currentPage)}
             className="gap-2"
             disabled={loading}
           >
@@ -192,7 +176,7 @@ export function LeaderboardManagement() {
           <Trophy className="size-8 mb-2" />
           <p className="text-sm opacity-90 mb-1">Total Participants</p>
           <p className="text-3xl font-bold">{totalParticipants}</p>
-          <p className="text-xs opacity-75 mt-1">This period</p>
+          <p className="text-xs opacity-75 mt-1">{selectedType === 'DAILY' ? 'Today' : 'This month'}</p>
         </Card>
 
         <Card className="p-4 bg-gradient-to-br from-blue-500 to-blue-600 text-white">
@@ -206,37 +190,55 @@ export function LeaderboardManagement() {
           <TrendingUp className="size-8 mb-2" />
           <p className="text-sm opacity-90 mb-1">Average Carbon Saved</p>
           <p className="text-3xl font-bold">{avgCarbonSaved.toLocaleString()} kg</p>
-          <p className="text-xs opacity-75 mt-1">Per user, this period</p>
+          <p className="text-xs opacity-75 mt-1">Per user</p>
         </Card>
 
         <Card className="p-4 bg-gradient-to-br from-purple-500 to-purple-600 text-white">
-           <Gift className="size-8 mb-2" />
-           <p className="text-sm opacity-90 mb-1">Rewards Distributed</p>
-           <p className="text-3xl font-bold">{Math.min(totalParticipants, 10)}</p>
-           <p className="text-xs opacity-75 mt-1">Top 10 rewarded</p>
+          <Gift className="size-8 mb-2" />
+          <p className="text-sm opacity-90 mb-1">Rewards Distributed</p>
+          <p className="text-3xl font-bold">{stats?.totalRewardsDistributed || 0}</p>
+          <p className="text-xs opacity-75 mt-1">Top 10 rewarded</p>
         </Card>
       </div>
 
-      {/* Period Selector & Filters */}
+      {/* Type Toggle & Date Navigation & Search */}
       <div className="px-6 pb-4">
         <Card className="p-4">
           <div className="flex flex-wrap gap-4 items-center">
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={goToPreviousPeriod} disabled={!canGoPreviousPeriod}><ChevronLeft className="size-4" /></Button>
-              <Select value={selectedPeriod} onValueChange={(value) => { setSelectedPeriod(value); setCurrentPage(0); }}>
-                <SelectTrigger className="w-[200px]">
-                  <Calendar className="size-4 mr-2" />
-                  <SelectValue placeholder="Select period" />
-                </SelectTrigger>
-                <SelectContent>
-                  {periods.map(period => (
-                    <SelectItem key={period} value={period}>{period}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button variant="outline" size="sm" onClick={goToNextPeriod} disabled={!canGoNextPeriod}><ChevronRight className="size-4" /></Button>
+            {/* Daily / Monthly toggle */}
+            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+              <Button
+                variant={selectedType === 'DAILY' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => handleTypeChange('DAILY')}
+              >
+                Daily
+              </Button>
+              <Button
+                variant={selectedType === 'MONTHLY' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => handleTypeChange('MONTHLY')}
+              >
+                Monthly
+              </Button>
             </div>
+
+            {/* Date navigation (admin can browse history) */}
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => navigateDate(-1)}>
+                <ChevronLeft className="size-4" />
+              </Button>
+              <span className="text-sm font-medium text-gray-700 min-w-[110px] text-center">
+                {getDateLabel()}
+              </span>
+              <Button variant="outline" size="sm" onClick={() => navigateDate(1)} disabled={!canGoNext()}>
+                <ChevronRight className="size-4" />
+              </Button>
+            </div>
+
             <div className="flex-1" />
+
+            {/* Search */}
             <div className="relative w-full sm:w-[250px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
               <Input
@@ -251,106 +253,111 @@ export function LeaderboardManagement() {
       </div>
 
       {/* Rankings Table */}
-        <div className="px-6 pb-6 flex-1 flex flex-col">
-          <Card className="flex-1 flex flex-col">
-            <div className="p-4 border-b bg-gray-50">
-              <h3 className="font-bold text-gray-900">Full Rankings</h3>
-              <p className="text-sm text-gray-600">{totalParticipants} users found</p>
-            </div>
+      <div className="px-6 pb-6 flex-1 flex flex-col">
+        <Card className="flex-1 flex flex-col">
+          <div className="p-4 border-b bg-gray-50">
+            <h3 className="font-bold text-gray-900">
+              {selectedType === 'DAILY' ? 'Daily' : 'Monthly'} Rankings
+            </h3>
+            <p className="text-sm text-gray-600">{totalParticipants} users found</p>
+          </div>
 
-            <div className="flex-1 overflow-y-auto">
-              {loading && rankings.length === 0 ? (
-                  <div className="h-full flex items-center justify-center">
-                    <Loader2 className="size-6 animate-spin text-blue-600" />
-                  </div>
-              ) : rankings.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
-                  <Trophy className="size-12 mx-auto mb-4 opacity-50" />
-                  <p>No rankings found</p>
-                  <p className="text-sm mt-1">No users match the current filter.</p>
-                </div>
-              ) : (
-                <table className="w-full text-sm">
-                  <thead className="sticky top-0 bg-white border-b z-10">
-                    <tr className="text-left text-gray-600">
-                      <th className="p-4 font-medium w-20 text-center">Rank</th>
-                      <th className="p-4 font-medium">User Info</th>
-                      <th className="p-4 font-medium text-right">Carbon Saved</th>
-                      <th className="p-4 font-medium text-right">Points</th>
-                      <th className="p-4 font-medium text-center">User Type</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {rankings.map((user) => (
-                      <tr key={user.id} className={`hover:bg-gray-50/50 transition-colors ${
-                          user.rank <= 3 ? 'bg-yellow-50/50' : ''
-                        }`}>
-                        <td className="p-4">
-                          <div className="flex items-center justify-center">
-                            {getRankBadge(user.rank)}
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-400 flex items-center justify-center text-xl shadow-inner text-white">
-                              {user.avatar}
-                            </div>
-                            <div>
-                              <p className="font-semibold text-gray-900">{user.nickname || user.username}</p>
-                              <p className="text-xs text-gray-500">ID: {user.userId}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-4 text-right">
-                          <p className="font-bold text-gray-900">{(user.carbonSaved || 0).toLocaleString()} kg</p>
-                          <p className="text-xs text-gray-500">{(user.avgDailyCarbonSaved || 0).toLocaleString()} kg/day</p>
-                        </td>
-                        <td className="p-4 text-right">
-                          <p className="font-semibold text-blue-600">{(user.points || 0).toLocaleString()}</p>
-                        </td>
-                        <td className="p-4 text-center">
-                          {user.isVip ? (
-                            <Badge className="bg-purple-100 text-purple-700">VIP</Badge>
-                          ) : (
-                            <Badge variant="outline">Regular</Badge>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-            
-            {rankingsPage && rankingsPage.totalPages > 1 && (
-              <div className="p-4 border-t flex items-center justify-between">
-                <p className="text-sm text-gray-600">
-                  Page {rankingsPage.number + 1} of {rankingsPage.totalPages}
-                </p>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage === 0}
-                  >
-                    <ChevronLeft className="size-4 mr-1" />
-                    Previous
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage >= rankingsPage.totalPages - 1}
-                  >
-                    Next
-                    <ChevronRight className="size-4 ml-1" />
-                  </Button>
-                </div>
+          <div className="flex-1 overflow-y-auto">
+            {loading && rankings.length === 0 ? (
+              <div className="h-full flex items-center justify-center">
+                <Loader2 className="size-6 animate-spin text-blue-600" />
               </div>
+            ) : rankings.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <Trophy className="size-12 mx-auto mb-4 opacity-50" />
+                <p>No rankings found</p>
+                <p className="text-sm mt-1">No completed trips for this period.</p>
+              </div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-white border-b z-10">
+                  <tr className="text-left text-gray-600">
+                    <th className="p-4 font-medium w-20 text-center">Rank</th>
+                    <th className="p-4 font-medium">User Info</th>
+                    <th className="p-4 font-medium text-right">Carbon Saved</th>
+                    <th className="p-4 font-medium text-right">Reward Points</th>
+                    <th className="p-4 font-medium text-center">User Type</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {rankings.map((user) => (
+                    <tr key={user.userId} className={`hover:bg-gray-50/50 transition-colors ${
+                      user.rank <= 3 ? 'bg-yellow-50/50' : ''
+                    }`}>
+                      <td className="p-4">
+                        <div className="flex items-center justify-center">
+                          {getRankBadge(user.rank)}
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-400 flex items-center justify-center text-xl shadow-inner text-white">
+                            {user.avatar}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-900">{user.nickname}</p>
+                            <p className="text-xs text-gray-500">ID: {user.userId}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-4 text-right">
+                        <p className="font-bold text-gray-900">{user.carbonSaved.toFixed(2)} kg</p>
+                      </td>
+                      <td className="p-4 text-right">
+                        {user.rewardPoints > 0 ? (
+                          <p className="font-semibold text-green-600">+{user.rewardPoints.toLocaleString()}</p>
+                        ) : (
+                          <p className="text-gray-400">—</p>
+                        )}
+                      </td>
+                      <td className="p-4 text-center">
+                        {user.isVip ? (
+                          <Badge className="bg-purple-100 text-purple-700">VIP</Badge>
+                        ) : (
+                          <Badge variant="outline">Regular</Badge>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )}
-          </Card>
-        </div>
+          </div>
+
+          {rankingsPage && rankingsPage.totalPages > 1 && (
+            <div className="p-4 border-t flex items-center justify-between">
+              <p className="text-sm text-gray-600">
+                Page {rankingsPage.number + 1} of {rankingsPage.totalPages}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(currentPage - 1)}
+                  disabled={currentPage === 0}
+                >
+                  <ChevronLeft className="size-4 mr-1" />
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                  disabled={currentPage >= rankingsPage.totalPages - 1}
+                >
+                  Next
+                  <ChevronRight className="size-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </Card>
+      </div>
     </div>
   );
 }
