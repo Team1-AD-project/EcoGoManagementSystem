@@ -658,40 +658,36 @@ export function ActivityManagement() {
                 />
               </div>
             </div>
-            {newActivity.type === 'OFFLINE' && (
-              <>
-                <div>
-                  <Label>Location Name</Label>
-                  <Input
-                    placeholder="e.g. UCD Student Centre"
-                    value={newActivity.locationName}
-                    onChange={(e) => setNewActivity({ ...newActivity, locationName: e.target.value })}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Latitude</Label>
-                    <Input
-                      type="number"
-                      step="any"
-                      placeholder="e.g. 53.3066"
-                      value={newActivity.latitude}
-                      onChange={(e) => setNewActivity({ ...newActivity, latitude: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label>Longitude</Label>
-                    <Input
-                      type="number"
-                      step="any"
-                      placeholder="e.g. -6.2186"
-                      value={newActivity.longitude}
-                      onChange={(e) => setNewActivity({ ...newActivity, longitude: e.target.value })}
-                    />
-                  </div>
-                </div>
-              </>
-            )}
+            <div>
+              <Label>Location Name</Label>
+              <Input
+                placeholder="e.g. UCD Student Centre"
+                value={newActivity.locationName}
+                onChange={(e) => setNewActivity({ ...newActivity, locationName: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Latitude</Label>
+                <Input
+                  type="number"
+                  step="any"
+                  placeholder="e.g. 53.3066"
+                  value={newActivity.latitude}
+                  onChange={(e) => setNewActivity({ ...newActivity, latitude: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>Longitude</Label>
+                <Input
+                  type="number"
+                  step="any"
+                  placeholder="e.g. -6.2186"
+                  value={newActivity.longitude}
+                  onChange={(e) => setNewActivity({ ...newActivity, longitude: e.target.value })}
+                />
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
@@ -773,40 +769,36 @@ export function ActivityManagement() {
                   />
                 </div>
               </div>
-              {selectedActivity.type === 'OFFLINE' && (
-                <>
-                  <div>
-                    <Label>Location Name</Label>
-                    <Input
-                      placeholder="e.g. UCD Student Centre"
-                      value={selectedActivity.locationName || ''}
-                      onChange={(e) => setSelectedActivity({ ...selectedActivity, locationName: e.target.value || null })}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Latitude</Label>
-                      <Input
-                        type="number"
-                        step="any"
-                        placeholder="e.g. 53.3066"
-                        value={selectedActivity.latitude ?? ''}
-                        onChange={(e) => setSelectedActivity({ ...selectedActivity, latitude: e.target.value ? parseFloat(e.target.value) : null })}
-                      />
-                    </div>
-                    <div>
-                      <Label>Longitude</Label>
-                      <Input
-                        type="number"
-                        step="any"
-                        placeholder="e.g. -6.2186"
-                        value={selectedActivity.longitude ?? ''}
-                        onChange={(e) => setSelectedActivity({ ...selectedActivity, longitude: e.target.value ? parseFloat(e.target.value) : null })}
-                      />
-                    </div>
-                  </div>
-                </>
-              )}
+              <div>
+                <Label>Location Name</Label>
+                <Input
+                  placeholder="e.g. UCD Student Centre"
+                  value={selectedActivity.locationName || ''}
+                  onChange={(e) => setSelectedActivity({ ...selectedActivity, locationName: e.target.value || null })}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Latitude</Label>
+                  <Input
+                    type="number"
+                    step="any"
+                    placeholder="e.g. 53.3066"
+                    value={selectedActivity.latitude ?? ''}
+                    onChange={(e) => setSelectedActivity({ ...selectedActivity, latitude: e.target.value ? parseFloat(e.target.value) : null })}
+                  />
+                </div>
+                <div>
+                  <Label>Longitude</Label>
+                  <Input
+                    type="number"
+                    step="any"
+                    placeholder="e.g. -6.2186"
+                    value={selectedActivity.longitude ?? ''}
+                    onChange={(e) => setSelectedActivity({ ...selectedActivity, longitude: e.target.value ? parseFloat(e.target.value) : null })}
+                  />
+                </div>
+              </div>
             </div>
           )}
           <DialogFooter>
