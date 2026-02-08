@@ -32,6 +32,11 @@ export interface LeaderboardStatsDto {
 
 export type LeaderboardType = 'DAILY' | 'MONTHLY';
 
+export interface FacultyCarbonResponse {
+  faculty: string;
+  totalCarbon: number;
+}
+
 /**
  * Get rankings by type and optional date.
  * Admin can pass date (DAILY: "2026-02-07", MONTHLY: "2026-02").
@@ -47,5 +52,13 @@ export async function getRankingsByType(
   const response = await api.get<ApiResponse<LeaderboardStatsDto>>('/leaderboards/rankings', {
     params: { type, date, name, page, size },
   });
+  return response.data.data;
+}
+
+/**
+ * Get monthly faculty carbon rankings (current month).
+ */
+export async function getFacultyRankings(): Promise<FacultyCarbonResponse[]> {
+  const response = await api.get<ApiResponse<FacultyCarbonResponse[]>>('/faculties/stats/carbon/monthly');
   return response.data.data;
 }
