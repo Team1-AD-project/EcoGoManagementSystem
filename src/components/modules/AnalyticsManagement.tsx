@@ -14,13 +14,14 @@ import {
   TreePine,
 } from 'lucide-react';
 import { HeatMapView } from './HeatMapView';
-import { getManagementAnalytics, type ManagementAnalyticsData, type Metric } from '@/api/statisticsApi';
+import { getManagementAnalytics, type ManagementAnalyticsData } from '@/api/statisticsApi';
 import { fetchAllTrips, type TripSummary } from '@/services/tripService';
 import { getFacultyRankings, getRankingsByType, type FacultyCarbonResponse, type LeaderboardStatsDto } from '@/api/leaderboardApi';
 import { fetchRewards, fetchOrders, type Reward, type Order } from '@/services/rewardService';
 import { getBadgePurchaseStats, getAllBadges, type BadgePurchaseStat, type Badge } from '@/api/collectiblesApi';
 import { fetchPointsSummary, type PointsSummary } from '@/services/pointsService';
 import { challengeApi, type Challenge } from '@/api/challengeApi';
+import { fetchUserList, type User } from '@/services/userService';
 
 type TimeRange = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
@@ -79,6 +80,8 @@ export function AnalyticsManagement() {
   const [pointsSummary, setPointsSummary] = useState<PointsSummary[]>([]);
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [totalUserCount, setTotalUserCount] = useState(0);
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -86,18 +89,20 @@ export function AnalyticsManagement() {
         setLoading(true);
         setError(null);
         const toArr = <T,>(v: unknown): T[] => Array.isArray(v) ? v : [];
-        const [ana, trp, fac, lb, rew, bs, bg, ps, ch, ord] = await Promise.all([
-          getManagementAnalytics(timeRange).catch(() => null),
-          fetchAllTrips().catch(() => [] as TripSummary[]),
-          getFacultyRankings().catch(() => [] as FacultyCarbonResponse[]),
-          getRankingsByType('MONTHLY', '', '', 0, 10).catch(() => null),
-          fetchRewards(1, 100).then(r => toArr<Reward>(r?.data)).catch(() => [] as Reward[]),
-          getBadgePurchaseStats().then(r => toArr<BadgePurchaseStat>(r)).catch(() => [] as BadgePurchaseStat[]),
-          getAllBadges().then(r => toArr<Badge>(r)).catch(() => [] as Badge[]),
-          fetchPointsSummary().then(r => toArr<PointsSummary>(r?.data)).catch(() => [] as PointsSummary[]),
-          challengeApi.getAllChallenges().then(r => toArr<Challenge>(r)).catch(() => [] as Challenge[]),
-          fetchOrders(1, 200).then(r => toArr<Order>(r?.data?.orders)).catch(() => [] as Order[]),
+        const [ana, trp, fac, lb, rew, bs, bg, ps, ch, ord, ul] = await Promise.all([
+          getManagementAnalytics(timeRange).catch(e => { console.warn('[Analytics] management-analytics failed:', e); return null; }),
+          fetchAllTrips().catch(e => { console.warn('[Analytics] fetchAllTrips failed:', e); return [] as TripSummary[]; }),
+          getFacultyRankings().catch(e => { console.warn('[Analytics] facultyRankings failed:', e); return [] as FacultyCarbonResponse[]; }),
+          getRankingsByType('MONTHLY', '', '', 0, 10).catch(e => { console.warn('[Analytics] leaderboard failed:', e); return null; }),
+          fetchRewards(1, 100).then(r => toArr<Reward>(r?.data)).catch(e => { console.warn('[Analytics] rewards failed:', e); return [] as Reward[]; }),
+          getBadgePurchaseStats().then(r => toArr<BadgePurchaseStat>(r)).catch(e => { console.warn('[Analytics] badgeStats failed:', e); return [] as BadgePurchaseStat[]; }),
+          getAllBadges().then(r => toArr<Badge>(r)).catch(e => { console.warn('[Analytics] badges failed:', e); return [] as Badge[]; }),
+          fetchPointsSummary().then(r => toArr<PointsSummary>(r?.data)).catch(e => { console.warn('[Analytics] points failed:', e); return [] as PointsSummary[]; }),
+          challengeApi.getAllChallenges().then(r => toArr<Challenge>(r)).catch(e => { console.warn('[Analytics] challenges failed:', e); return [] as Challenge[]; }),
+          fetchOrders(1, 200).then(r => toArr<Order>(r?.data?.orders)).catch(e => { console.warn('[Analytics] orders failed:', e); return [] as Order[]; }),
+          fetchUserList(1, 500).catch(e => { console.warn('[Analytics] userList failed:', e); return null; }),
         ]);
+        console.log('[Analytics] Results:', { ana, trp: trp?.length, fac: fac?.length, lb, rew: rew?.length, bs: bs?.length, bg: bg?.length, ps: ps?.length, ch: ch?.length, ord: ord?.length, users: ul?.data?.total });
         setAnalyticsData(ana);
         setTrips(toArr<TripSummary>(trp));
         setFacultyRankings(toArr<FacultyCarbonResponse>(fac));
@@ -108,6 +113,8 @@ export function AnalyticsManagement() {
         setPointsSummary(ps);
         setChallenges(ch);
         setOrders(ord);
+        setUsers(toArr<User>(ul?.data?.list));
+        setTotalUserCount(ul?.data?.total || 0);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load analytics');
       } finally {
@@ -201,12 +208,35 @@ export function AnalyticsManagement() {
     ];
   }, [pointsSummary]);
 
+  const nonAdminUsers = useMemo(() =>
+    users.filter(u => !u.admin && !u.isAdmin && !u.deactivated && !u.isDeactivated),
+    [users]);
+
   const vipPenetration = useMemo(() => {
-    if (!analyticsData?.vipDistribution) return 0;
-    const total = analyticsData.vipDistribution.reduce((s, d) => s + d.value, 0);
-    const vip = analyticsData.vipDistribution.find(d => d.name.toLowerCase().includes('vip') || d.name.toLowerCase().includes('active'));
-    return total > 0 && vip ? Math.round((vip.value / total) * 100) : 0;
-  }, [analyticsData]);
+    if (nonAdminUsers.length === 0) return 0;
+    const vipCount = nonAdminUsers.filter(u => u.vip?.active).length;
+    return Math.round((vipCount / nonAdminUsers.length) * 100);
+  }, [nonAdminUsers]);
+
+  const totalCarbonFromUsers = useMemo(() =>
+    nonAdminUsers.reduce((s, u) => s + (u.totalCarbon || 0), 0),
+    [nonAdminUsers]);
+
+  const activeUserCount = useMemo(() => {
+    const now = new Date();
+    const daysMap: Record<TimeRange, number> = { daily: 1, weekly: 7, monthly: 30, yearly: 365 };
+    const cutoff = new Date(now.getTime() - daysMap[timeRange] * 86400000);
+    return nonAdminUsers.filter(u => u.lastLoginAt && new Date(u.lastLoginAt) >= cutoff).length;
+  }, [nonAdminUsers, timeRange]);
+
+  const vipDistribution = useMemo(() => {
+    const vipActive = nonAdminUsers.filter(u => u.vip?.active).length;
+    const nonVip = nonAdminUsers.length - vipActive;
+    return [
+      { name: 'VIP Active', value: vipActive },
+      { name: 'Non-VIP', value: nonVip },
+    ];
+  }, [nonAdminUsers]);
 
   const orderStatusDist = useMemo(() => {
     const map: Record<string, number> = {};
@@ -217,7 +247,7 @@ export function AnalyticsManagement() {
   const greenTripRate = trips.length > 0 ? Math.round((trips.filter(t => t.isGreenTrip).length / trips.length) * 100) : 0;
   const totalPointsSpent = pointsEconomy.find(p => p.name === 'Spent')?.value || 0;
   const bestSellerCount = rewards.length > 0 ? Math.max(...rewards.map(r => r.totalRedemptionCount), 0) : 0;
-  const totalBadgesSold = badgeStats.reduce((s, b) => s + b.count, 0);
+  const totalBadgesSold = badgeStats.reduce((s, b) => s + (b.count || 0), 0);
 
   const top10Users = useMemo(() =>
     (leaderboardData?.rankingsPage?.content || []).slice(0, 10).map(u => ({
@@ -234,8 +264,6 @@ export function AnalyticsManagement() {
   if (error) {
     return <div className="h-full flex items-center justify-center text-red-500">{error}</div>;
   }
-
-  const m = (metric?: Metric) => metric ? { val: formatNum(metric.currentValue), growth: metric.growthRate } : { val: 'N/A', growth: undefined };
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
@@ -268,9 +296,9 @@ export function AnalyticsManagement() {
 
         {/* Row 2: KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <KpiCard title="Total Users" value={m(analyticsData?.totalUsers).val} unit="users" growth={m(analyticsData?.totalUsers).growth} icon={<Users className="size-6" />} color="from-blue-500 to-blue-600" />
-          <KpiCard title="Active Users" value={m(analyticsData?.activeUsers).val} unit="users" growth={m(analyticsData?.activeUsers).growth} icon={<Activity className="size-6" />} color="from-purple-500 to-purple-600" />
-          <KpiCard title="Total Carbon Saved" value={m(analyticsData?.totalCarbonSaved).val} unit="kg CO2" growth={m(analyticsData?.totalCarbonSaved).growth} icon={<Leaf className="size-6" />} color="from-green-500 to-green-600" />
+          <KpiCard title="Total Users" value={formatNum(totalUserCount || nonAdminUsers.length)} unit="registered users" icon={<Users className="size-6" />} color="from-blue-500 to-blue-600" />
+          <KpiCard title="Active Users" value={formatNum(activeUserCount)} unit={`active in ${timeRange} period`} icon={<Activity className="size-6" />} color="from-purple-500 to-purple-600" />
+          <KpiCard title="Total Carbon Saved" value={formatNum(Math.round(totalCarbonFromUsers))} unit="kg CO2" icon={<Leaf className="size-6" />} color="from-green-500 to-green-600" />
           <KpiCard title="Green Trip Rate" value={`${greenTripRate}%`} unit={`${trips.filter(t => t.isGreenTrip).length} / ${trips.length} trips`} icon={<TreePine className="size-6" />} color="from-emerald-500 to-emerald-600" />
           <KpiCard title="VIP Penetration" value={`${vipPenetration}%`} unit="of all users" icon={<Crown className="size-6" />} color="from-amber-500 to-amber-600" />
           <KpiCard title="Total Points Spent" value={formatNum(totalPointsSpent)} unit="points consumed" icon={<Coins className="size-6" />} color="from-orange-500 to-orange-600" />
@@ -501,8 +529,8 @@ export function AnalyticsManagement() {
           <ChartCard title="VIP Membership Distribution">
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
-                <Pie data={analyticsData?.vipDistribution || []} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}>
-                  {(analyticsData?.vipDistribution || []).map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                <Pie data={vipDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}>
+                  {vipDistribution.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                 </Pie>
                 <Tooltip />
                 <Legend />
