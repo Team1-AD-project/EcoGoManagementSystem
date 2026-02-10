@@ -305,7 +305,7 @@ export function AnalyticsManagement() {
   }, [pointsSummary]);
 
   const nonAdminUsers = useMemo(() =>
-    users.filter(u => !u.admin && !u.isAdmin && !u.deactivated && !u.isDeactivated),
+    users.filter(u => !u.admin && !u.isAdmin),
     [users]);
 
   const vipPenetration = useMemo(() => {
