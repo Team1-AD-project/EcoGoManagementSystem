@@ -67,11 +67,11 @@ export interface TripDetailListResponse {
 
 export const fetchAllTrips = async (): Promise<TripSummary[]> => {
     try {
-        console.log("[TripService] Fetching ALL trips...");
+        console.log("[TripService] Fetching ALL trips from /trips/all (baseURL: /api/v1/web)...");
         const response = await api.get<TripSummaryListResponse>('/trips/all');
         console.log("[TripService] fetchAllTrips Response:", response.data);
-        if (response.data.code === 200) {
-            return response.data.data || []; // Ensure array is returned even if data is null
+        if (response.data && (Number(response.data.code) === 200)) {
+            return response.data.data || [];
         }
         console.warn("[TripService] fetchAllTrips non-200:", response.data);
         return [];

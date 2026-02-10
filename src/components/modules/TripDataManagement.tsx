@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { fetchUserList, type User } from '@/services/userService';
-import { fetchUserTrips, type TripDetail } from '@/services/tripService';
+import { fetchUserTrips, fetchAllTrips, type TripDetail } from '@/services/tripService';
 import { ChevronLeft, ChevronRight, Search, RefreshCw, MapPin } from 'lucide-react';
 
 // Fix for default marker icons
@@ -40,41 +40,44 @@ export function TripDataManagement() {
   const [totalPages, setTotalPages] = useState(1);
   const pageSize = 20;
 
-  // Load Stats for Displayed Users (Per-User Fetch Strategy)
+  // Load ALL Stats once (Batch Strategy)
   useEffect(() => {
-    if (users.length === 0) return;
-
-    const loadPerUserStats = async () => {
-      const statsMap: Record<string, { completed: number, carbon: number }> = {};
-
-      // Fetch stats for each user in the current list
-      await Promise.all(users.map(async (user) => {
-        try {
-          const trips = await fetchUserTrips(user.userid);
-          let completed = 0;
-          let carbon = 0;
-
-          if (trips && trips.length > 0) {
-            trips.forEach(t => {
-              if ((t.carbonStatus || '').toLowerCase() === 'completed') {
-                completed++;
-                // Handle snake_case or camelCase
-                const saved = Number((t as any).carbon_saved ?? t.carbonSaved ?? 0);
-                carbon += saved;
-              }
-            });
-          }
-          statsMap[user.userid] = { completed, carbon };
-        } catch (e) {
-          console.error(`Failed stats for ${user.userid}`, e);
+    const loadAllStats = async () => {
+      try {
+        const allTrips = await fetchAllTrips(); // Returns TripSummary[]
+        console.log("[TripData] Loaded batch trips:", allTrips.length);
+        if (allTrips.length > 0) {
+          console.log("[TripData] Sample Trip:", allTrips[0]);
         }
-      }));
 
-      setUserStatsMap(prev => ({ ...prev, ...statsMap }));
+        const statsMap: Record<string, { completed: number, carbon: number }> = {};
+
+        allTrips.forEach(t => {
+          // Handle potential casing issues in field names
+          const uid = t.userId || (t as any).userid || (t as any).userID;
+          if (!uid) return;
+
+          if (!statsMap[uid]) {
+            statsMap[uid] = { completed: 0, carbon: 0 };
+          }
+
+          const status = (t.carbonStatus || '').toLowerCase();
+          if (status === 'completed') {
+            statsMap[uid].completed++;
+            const saved = Number(t.carbonSaved || 0);
+            statsMap[uid].carbon += saved;
+          }
+        });
+
+        console.log("[TripData] Aggregated Stats Map:", statsMap);
+        setUserStatsMap(statsMap);
+      } catch (e) {
+        console.error("Failed to load batch stats", e);
+      }
     };
 
-    loadPerUserStats();
-  }, [users]);
+    loadAllStats();
+  }, []);
 
   // Fetch Users with Pagination
   const loadUsers = async (pageNo: number) => {
