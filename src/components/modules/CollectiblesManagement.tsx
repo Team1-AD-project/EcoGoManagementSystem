@@ -84,7 +84,7 @@ interface PetAccessory {
   name: string;
   description: string;
   imageUrl: string;
-  category: 'hat' | 'clothing' | 'accessory' | 'background' | 'effect';
+  category: string; // 直接使用 DB 的 subCategory 值: "head", "body", "face" 等
   acquisitionMethod: AcquisitionMethod;
   price: number;
   requirementDescription: string;
@@ -120,20 +120,12 @@ const mapApiBadgeToBadgeItem = (apiBadge: ApiBadge, ownedCount: number): BadgeIt
 
 // 将后端 Badge (cloth) 转换为前端 PetAccessory
 const mapApiBadgeToPetAccessory = (apiBadge: ApiBadge, ownedCount: number): PetAccessory => {
-  // 从 subCategory 推断 category
-  let category: PetAccessory['category'] = 'accessory';
-  if (apiBadge.subCategory?.toLowerCase().includes('hat')) category = 'hat';
-  else if (apiBadge.subCategory?.toLowerCase().includes('clothing')) category = 'clothing';
-  else if (apiBadge.subCategory?.toLowerCase().includes('shoes')) category = 'accessory';
-  else if (apiBadge.subCategory?.toLowerCase().includes('background')) category = 'background';
-  else if (apiBadge.subCategory?.toLowerCase().includes('effect')) category = 'effect';
-
   return {
     id: apiBadge.badgeId,
     name: apiBadge.name?.en || apiBadge.name?.zh || 'Unknown',
     description: apiBadge.description?.en || apiBadge.description?.zh || '',
     imageUrl: apiBadge.icon?.url || '',
-    category,
+    category: apiBadge.subCategory || 'other', // 直接使用 DB 的 subCategory: "head", "body", "face"
     acquisitionMethod: (apiBadge.acquisitionMethod || 'free') as AcquisitionMethod,
     price: apiBadge.purchaseCost || 0,
     requirementDescription: apiBadge.description?.en || apiBadge.description?.zh || '',
@@ -163,9 +155,16 @@ export function CollectiblesManagement() {
 
       setPurchaseStats(stats);
 
+      // DEBUG: 查看 API 返回的原始数据
+      console.log('[Collectibles] Purchase stats from API:', JSON.stringify(stats, null, 2));
+      console.log('[Collectibles] Cloth items badgeIds:', clothData.map(c => c.badgeId));
+
       // 创建 ownedBy 映射
       const ownedMap = new Map<string, number>();
-      stats.forEach(stat => ownedMap.set(stat.badgeId, stat.count));
+      stats.forEach(stat => {
+        console.log(`[Collectibles] stat: badgeId=${stat.badgeId}, purchaseCount=${stat.purchaseCount}`);
+        ownedMap.set(stat.badgeId, stat.purchaseCount);
+      });
 
       // 转换徽章数据
       const mappedBadges = badgeData.map(b =>
@@ -174,9 +173,11 @@ export function CollectiblesManagement() {
       setBadges(mappedBadges);
 
       // 转换服饰数据
-      const mappedAccessories = clothData.map(c =>
-        mapApiBadgeToPetAccessory(c, ownedMap.get(c.badgeId) || 0)
-      );
+      const mappedAccessories = clothData.map(c => {
+        const count = ownedMap.get(c.badgeId) || 0;
+        console.log(`[Collectibles] cloth ${c.badgeId} → sold count: ${count}`);
+        return mapApiBadgeToPetAccessory(c, count);
+      });
       setAccessories(mappedAccessories);
 
     } catch (err) {
@@ -393,31 +394,25 @@ export function CollectiblesManagement() {
   };
 
   const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case 'hat':
+    switch (category.toLowerCase()) {
+      case 'head':
         return <Crown className="size-4" />;
-      case 'clothing':
+      case 'body':
         return <Shirt className="size-4" />;
-      case 'accessory':
-        return <CircleDot className="size-4" />;
-      case 'background':
-        return <Palette className="size-4" />;
-      case 'effect':
+      case 'face':
         return <Sparkles className="size-4" />;
       default:
-        return null;
+        return <CircleDot className="size-4" />;
     }
   };
 
   const getCategoryLabel = (category: string) => {
-    const labels = {
-      hat: 'Hat',
-      clothing: 'Clothing',
-      accessory: 'Accessory',
-      background: 'Background',
-      effect: 'Effect'
+    const labels: Record<string, string> = {
+      head: 'Head',
+      body: 'Body',
+      face: 'Face',
     };
-    return labels[category as keyof typeof labels] || category;
+    return labels[category.toLowerCase()] || category.charAt(0).toUpperCase() + category.slice(1);
   };
 
   const getMethodLabel = (method: AcquisitionMethod) => {
@@ -500,7 +495,7 @@ export function CollectiblesManagement() {
       {/* Header */}
       <div className="p-6 bg-white border-b">
         <h2 className="text-2xl font-bold text-gray-900">Collectibles Management</h2>
-        <p className="text-gray-600 mt-1">Manage badges and pet accessory system</p>
+        <p className="text-gray-600 mt-1">Manage badges and pet clothes store</p>
       </div>
 
       {/* Statistics Cards */}
@@ -518,9 +513,9 @@ export function CollectiblesManagement() {
           <div className="flex items-center justify-between mb-2">
             <Dog className="size-8" />
           </div>
-          <p className="text-sm opacity-90 mb-1">Total Pet Accessories</p>
+          <p className="text-sm opacity-90 mb-1">Total Pet Clothes</p>
           <p className="text-3xl font-bold">{totalAccessories}</p>
-          <p className="text-xs opacity-75 mt-1">Total Ownership: {accessoryOwners.toLocaleString()}</p>
+          <p className="text-xs opacity-75 mt-1">Total Sold: {accessoryOwners.toLocaleString()}</p>
         </Card>
 
         <Card className="p-4 bg-gradient-to-br from-green-500 to-green-600 text-white">
@@ -535,7 +530,7 @@ export function CollectiblesManagement() {
           <div className="flex items-center justify-between mb-2">
             <Sparkles className="size-8" />
           </div>
-          <p className="text-sm opacity-90 mb-1">Purchasable Accessories</p>
+          <p className="text-sm opacity-90 mb-1">Purchasable Clothes</p>
           <p className="text-3xl font-bold">{accessories.filter(a => a.acquisitionMethod === 'purchase').length}</p>
         </Card>
       </div>
@@ -550,7 +545,7 @@ export function CollectiblesManagement() {
             </TabsTrigger>
             <TabsTrigger value="accessories" className="gap-2">
               <Dog className="size-4" />
-              Pet Accessory Management
+              Pet Clothes Store
             </TabsTrigger>
           </TabsList>
 
@@ -653,7 +648,7 @@ export function CollectiblesManagement() {
                       )}
                       
                       <div className="flex items-center justify-between pt-2 border-t">
-                        <span className="text-sm text-gray-600">Owners:</span>
+                        <span className="text-sm text-gray-600">Own:</span>
                         <span className="font-semibold text-gray-900">{badge.ownedBy}</span>
                       </div>
                     </div>
@@ -755,11 +750,9 @@ export function CollectiblesManagement() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Categories</SelectItem>
-                      <SelectItem value="hat">Hat</SelectItem>
-                      <SelectItem value="clothing">Clothing</SelectItem>
-                      <SelectItem value="accessory">Accessory</SelectItem>
-                      <SelectItem value="background">Background</SelectItem>
-                      <SelectItem value="effect">Effect</SelectItem>
+                      {[...new Set(accessories.map(a => a.category))].sort().map(cat => (
+                        <SelectItem key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -831,7 +824,7 @@ export function CollectiblesManagement() {
                         )}
                         
                         <div className="flex items-center justify-between pt-2 border-t">
-                          <span className="text-sm text-gray-600">Owners:</span>
+                          <span className="text-sm text-gray-600">Sold:</span>
                           <span className="font-semibold text-gray-900">{accessory.ownedBy}</span>
                         </div>
                       </div>

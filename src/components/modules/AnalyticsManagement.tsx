@@ -239,9 +239,9 @@ export function AnalyticsManagement() {
     const badgeOnly = badges.filter(b => b.category === 'badge');
     const badgeMap = new Map(badgeOnly.map(b => [b.badgeId, b.name?.en || b.name?.zh || b.badgeId]));
     const badgeIds = new Set(badgeOnly.map(b => b.badgeId));
-    const withSales = [...badgeStats].filter(s => badgeIds.has(s.badgeId) && s.count > 0)
-      .sort((a, b) => b.count - a.count).slice(0, 10)
-      .map(s => ({ name: (badgeMap.get(s.badgeId) || s.badgeId || 'Unknown').substring(0, 15), count: s.count }));
+    const withSales = [...badgeStats].filter(s => badgeIds.has(s.badgeId) && s.purchaseCount > 0)
+      .sort((a, b) => b.purchaseCount - a.purchaseCount).slice(0, 10)
+      .map(s => ({ name: (badgeMap.get(s.badgeId) || s.badgeId || 'Unknown').substring(0, 15), count: s.purchaseCount }));
     if (withSales.length > 0) return withSales;
     // No sales — show 10 random badges with count 0
     return badgeOnly.slice(0, 10).map(b => ({ name: (b.name?.en || b.name?.zh || b.badgeId).substring(0, 15), count: 0 }));
@@ -251,9 +251,9 @@ export function AnalyticsManagement() {
     const clothOnly = badges.filter(b => b.category === 'cloth');
     const clothMap = new Map(clothOnly.map(b => [b.badgeId, b.name?.en || b.name?.zh || b.badgeId]));
     const clothIds = new Set(clothOnly.map(b => b.badgeId));
-    const withSales = [...badgeStats].filter(s => clothIds.has(s.badgeId) && s.count > 0)
-      .sort((a, b) => b.count - a.count).slice(0, 10)
-      .map(s => ({ name: (clothMap.get(s.badgeId) || s.badgeId || 'Unknown').substring(0, 15), count: s.count }));
+    const withSales = [...badgeStats].filter(s => clothIds.has(s.badgeId) && s.purchaseCount > 0)
+      .sort((a, b) => b.purchaseCount - a.purchaseCount).slice(0, 10)
+      .map(s => ({ name: (clothMap.get(s.badgeId) || s.badgeId || 'Unknown').substring(0, 15), count: s.purchaseCount }));
     if (withSales.length > 0) return withSales;
     // No sales — show 10 random clothes with count 0
     return clothOnly.slice(0, 10).map(b => ({ name: (b.name?.en || b.name?.zh || b.badgeId).substring(0, 15), count: 0 }));

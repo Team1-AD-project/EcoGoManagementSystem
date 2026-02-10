@@ -32,7 +32,7 @@ export interface Badge {
 // 购买统计
 export interface BadgePurchaseStat {
   badgeId: string;
-  count: number;
+  purchaseCount: number;
 }
 
 // 获取所有徽章/服饰
