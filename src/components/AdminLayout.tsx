@@ -1,7 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { Header } from '@/components/Header';
 import { Sidebar } from '@/components/Sidebar';
-import { Dashboard } from '@/components/modules/Dashboard';
 import { UserManagement } from '@/components/modules/UserManagement';
 import { TripDataManagement } from '@/components/modules/TripDataManagement';
 import { PointsTransactionManagement } from '@/components/modules/PointsTransactionManagement';
@@ -32,7 +31,7 @@ export function AdminLayout() {
   const renderContent = () => {
     switch (module) {
       case 'dashboard':
-        return <Dashboard onModuleSelect={handleModuleSelect} />;
+        return <AnalyticsManagement />;
       case 'user-management':
         return <UserManagement />;
       case 'trip-management':
@@ -45,8 +44,6 @@ export function AdminLayout() {
         return <RewardStoreManagement />;
       case 'collectibles-management':
         return <CollectiblesManagement />;
-      case 'analytics-management':
-        return <AnalyticsManagement />;
       case 'ad-management':
         return <AdManagement />;
       case 'leaderboard-management':
@@ -58,7 +55,7 @@ export function AdminLayout() {
       case 'challenge-management':
         return <ChallengeManagement />;
       default:
-        return <Dashboard onModuleSelect={handleModuleSelect} />;
+        return <AnalyticsManagement />;
     }
   };
 

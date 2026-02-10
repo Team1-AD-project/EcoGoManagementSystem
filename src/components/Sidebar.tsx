@@ -1,5 +1,4 @@
 import {
-  LayoutDashboard,
   Users,
   Map,
   Coins,
@@ -33,7 +32,7 @@ export function Sidebar({ selectedModule, onModuleSelect, onLogout }: SidebarPro
     {
       id: 'dashboard',
       label: 'Dashboard',
-      icon: <LayoutDashboard className="size-5" />
+      icon: <BarChart3 className="size-5" />
     },
     {
       id: 'user-management',
@@ -64,11 +63,6 @@ export function Sidebar({ selectedModule, onModuleSelect, onLogout }: SidebarPro
       id: 'collectibles-management',
       label: 'Collectibles',
       icon: <Award className="size-5" />
-    },
-    {
-      id: 'analytics-management',
-      label: 'Data Analytics',
-      icon: <BarChart3 className="size-5" />
     },
     {
       id: 'ad-management',

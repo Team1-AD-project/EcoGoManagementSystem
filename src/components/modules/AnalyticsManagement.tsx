@@ -57,23 +57,21 @@ function KpiCard({ title, value, unit, growth, icon, color }: {
 const tooltipStyle = { backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px' };
 
 const CHART_NAMES = [
-  'User Growth Trends',
-  'Carbon Saved Trends',
-  'Trip Volume Trend',
-  'Carbon Saved by Transport Mode',
-  'Transport Mode Distribution',
-  'Green vs Non-Green Trips',
-  'Faculty Carbon Rankings',
-  'Top 10 Users by Carbon Saved',
-  'Top 10 Selling Products',
-  'Top 10 Popular Badges',
-  'Top 10 Popular Clothes',
-  'Product Category Distribution',
-  'Badge Acquisition Method',
-  'Challenge Participation',
-  'Challenge Type Distribution',
-  'VIP Membership Distribution',
-  'Points Economy Overview',
+  'User Growth Trends',           // 0
+  'Carbon Saved Trends',          // 1
+  'Trip Volume Trend',            // 2
+  'Carbon Saved by Transport Mode', // 3
+  'Transport Mode Distribution',  // 4
+  'Green vs Non-Green Trips',     // 5
+  'Faculty Carbon Rankings',      // 6
+  'Top 10 Users by Carbon Saved', // 7
+  'Top 10 Selling Products',      // 8
+  'Top 10 Popular Badges',        // 9
+  'Top 10 Popular Clothes',       // 10
+  'Challenge Participation',      // 11
+  'Challenge Type Distribution',  // 12
+  'VIP Membership Distribution',  // 13
+  'Points Economy Overview',      // 14
 ];
 
 const CHART_SECTIONS: { label: string; start: number; end: number }[] = [
@@ -81,9 +79,8 @@ const CHART_SECTIONS: { label: string; start: number; end: number }[] = [
   { label: 'Trip Analysis', start: 2, end: 6 },
   { label: 'Rankings', start: 6, end: 8 },
   { label: 'Products & Collectibles', start: 8, end: 11 },
-  { label: 'Distribution', start: 11, end: 13 },
-  { label: 'Challenges', start: 13, end: 15 },
-  { label: 'Economy & Status', start: 15, end: 17 },
+  { label: 'Challenges', start: 11, end: 13 },
+  { label: 'Economy & Status', start: 13, end: 15 },
 ];
 
 export function AnalyticsManagement() {
@@ -611,36 +608,6 @@ export function AnalyticsManagement() {
         </ResponsiveContainer>
       );
       case 11: return (
-        categoryDist.length === 0 ? (
-          <div className="flex flex-col items-center justify-center" style={{ height: H }}>
-            <div className="w-52 h-52 rounded-full bg-gray-200 flex items-center justify-center">
-              <span className="text-gray-400 text-sm">No sales data</span>
-            </div>
-          </div>
-        ) : (
-          <ResponsiveContainer width="100%" height={H}>
-            <PieChart>
-              <Pie data={categoryDist} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={130} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}>
-                {categoryDist.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-              </Pie>
-              <Tooltip />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-        )
-      );
-      case 12: return (
-        <ResponsiveContainer width="100%" height={H}>
-          <PieChart>
-            <Pie data={acquisitionDist} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={130} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}>
-              {acquisitionDist.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-            </Pie>
-            <Tooltip />
-            <Legend />
-          </PieChart>
-        </ResponsiveContainer>
-      );
-      case 13: return (
         <ResponsiveContainer width="100%" height={H}>
           <BarChart data={challengeParticipation}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -653,7 +620,7 @@ export function AnalyticsManagement() {
           </BarChart>
         </ResponsiveContainer>
       );
-      case 14: return (
+      case 12: return (
         <ResponsiveContainer width="100%" height={H}>
           <PieChart>
             <Pie data={challengeTypeDist} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={130} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}>
@@ -664,7 +631,7 @@ export function AnalyticsManagement() {
           </PieChart>
         </ResponsiveContainer>
       );
-      case 15: return (
+      case 13: return (
         <ResponsiveContainer width="100%" height={H}>
           <PieChart>
             <Pie data={vipDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={130} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}>
@@ -675,7 +642,7 @@ export function AnalyticsManagement() {
           </PieChart>
         </ResponsiveContainer>
       );
-      case 16: return (
+      case 14: return (
         <ResponsiveContainer width="100%" height={H}>
           <BarChart data={pointsEconomy}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -710,7 +677,7 @@ export function AnalyticsManagement() {
       <div className="p-6 bg-white border-b">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold">Data Analytics</h2>
+            <h2 className="text-2xl font-bold">Dashboard</h2>
             <p className="text-gray-600 mt-1">Comprehensive overview of platform performance, user engagement, and environmental impact</p>
           </div>
           <div className="flex items-center gap-4">
