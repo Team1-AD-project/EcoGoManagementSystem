@@ -91,6 +91,7 @@ export function AnalyticsManagement() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedChart, setSelectedChart] = useState(0);
+  const [selectedChart2, setSelectedChart2] = useState(1);
   const [chartMonth, setChartMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -409,7 +410,7 @@ export function AnalyticsManagement() {
   // ─── Chart renderer ───
 
   const renderChart = (index: number) => {
-    const H = 400;
+    const H = 380;
     switch (index) {
       case 0: return (
         <div>
@@ -713,39 +714,51 @@ export function AnalyticsManagement() {
           <KpiCard title="Total Collectible Count" value={formatNum(badges.length)} unit="badges & clothes" icon={<Award className="size-6" />} color="from-indigo-500 to-indigo-600" />
         </div>
 
-        {/* Charts: Left chart + Right nav list */}
+        {/* Charts: Two large charts + Right nav list */}
         <Card className="p-6">
-          <div className="flex gap-6" style={{ minHeight: 500 }}>
-            {/* Left: Selected chart */}
-            <div className="flex-1 min-w-0">
-              <h3 className="text-lg font-semibold mb-4">{CHART_NAMES[selectedChart]}</h3>
-              {renderChart(selectedChart)}
+          <div className="flex gap-4" style={{ minHeight: 420 }}>
+            {/* Two charts side by side */}
+            <div className="flex-1 min-w-0 flex gap-4">
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-semibold mb-2">{CHART_NAMES[selectedChart]}</h3>
+                {renderChart(selectedChart)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-semibold mb-2">{CHART_NAMES[selectedChart2]}</h3>
+                {renderChart(selectedChart2)}
+              </div>
             </div>
             {/* Right: Chart navigation list */}
-            <div className="w-56 border-l pl-4 overflow-y-auto flex-shrink-0" style={{ maxHeight: 500 }}>
+            <div className="w-48 border-l pl-3 overflow-y-auto flex-shrink-0" style={{ maxHeight: 420 }}>
               {CHART_SECTIONS.map((section) => (
                 <div key={section.label}>
-                  <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mt-3 mb-1 px-2 first:mt-0">
+                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mt-3 mb-1 px-2 first:mt-0">
                     {section.label}
                   </div>
                   {CHART_NAMES.slice(section.start, section.end).map((name, i) => {
-                    const globalIndex = section.start + i;
+                    const idx = section.start + i;
+                    const isLeft = idx === selectedChart;
+                    const isRight = idx === selectedChart2;
                     return (
                       <div
-                        key={globalIndex}
-                        onClick={() => setSelectedChart(globalIndex)}
-                        className={`px-3 py-2 rounded cursor-pointer text-sm mb-0.5 transition-colors ${
-                          globalIndex === selectedChart
-                            ? 'bg-blue-50 text-blue-600 font-semibold'
+                        key={idx}
+                        onClick={() => setSelectedChart(idx)}
+                        onContextMenu={(e) => { e.preventDefault(); setSelectedChart2(idx); }}
+                        className={`px-2 py-1.5 rounded cursor-pointer text-xs mb-0.5 transition-colors flex items-center gap-1 ${
+                          isLeft ? 'bg-blue-50 text-blue-600 font-semibold'
+                            : isRight ? 'bg-green-50 text-green-600 font-semibold'
                             : 'text-gray-700 hover:bg-gray-100'
                         }`}
                       >
+                        {isLeft && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0" />}
+                        {isRight && <span className="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0" />}
                         {name}
                       </div>
                     );
                   })}
                 </div>
               ))}
+              <p className="text-[9px] text-gray-400 mt-3 px-2">Click = left chart<br />Right-click = right chart</p>
             </div>
           </div>
         </Card>
