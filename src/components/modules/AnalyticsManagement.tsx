@@ -54,21 +54,49 @@ function KpiCard({ title, value, unit, growth, icon, color }: {
   );
 }
 
-function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <Card className="p-6">
-      <h3 className="text-lg font-semibold mb-4">{title}</h3>
-      {children}
-    </Card>
-  );
-}
-
 const tooltipStyle = { backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px' };
+
+const CHART_NAMES = [
+  'User Growth Trends',
+  'Carbon Saved Trends',
+  'Trip Volume Trend',
+  'Carbon Saved by Transport Mode',
+  'Transport Mode Distribution',
+  'Green vs Non-Green Trips',
+  'Faculty Carbon Rankings',
+  'Top 10 Users by Carbon Saved',
+  'Top 10 Selling Products',
+  'Top 10 Popular Badges',
+  'Top 10 Popular Clothes',
+  'Product Category Distribution',
+  'Badge Acquisition Method',
+  'Challenge Participation',
+  'Challenge Type Distribution',
+  'VIP Membership Distribution',
+  'Points Economy Overview',
+  'Order Status Distribution',
+  'Revenue Trends',
+];
+
+const CHART_SECTIONS: { label: string; start: number; end: number }[] = [
+  { label: 'User & Carbon', start: 0, end: 2 },
+  { label: 'Trip Analysis', start: 2, end: 6 },
+  { label: 'Rankings', start: 6, end: 8 },
+  { label: 'Products & Collectibles', start: 8, end: 11 },
+  { label: 'Distribution', start: 11, end: 13 },
+  { label: 'Challenges', start: 13, end: 15 },
+  { label: 'Economy & Status', start: 15, end: 19 },
+];
 
 export function AnalyticsManagement() {
   const [timeRange, setTimeRange] = useState<TimeRange>('monthly');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedChart, setSelectedChart] = useState(0);
+  const [chartMonth, setChartMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
 
   const [analyticsData, setAnalyticsData] = useState<ManagementAnalyticsData | null>(null);
   const [trips, setTrips] = useState<TripSummary[]>([]);
@@ -162,25 +190,79 @@ export function AnalyticsManagement() {
       map[date].total++;
       if (t.isGreenTrip) map[date].green++;
     });
-    return Object.entries(map).sort(([a], [b]) => a.localeCompare(b)).map(([date, v]) => ({ date, ...v }));
+    const sorted = Object.entries(map).sort(([a], [b]) => a.localeCompare(b));
+    let cumTotal = 0, cumGreen = 0;
+    return sorted.map(([date, v]) => {
+      cumTotal += v.total;
+      cumGreen += v.green;
+      return { date, total: cumTotal, green: cumGreen };
+    });
   }, [trips]);
 
-  const topProducts = useMemo(() =>
-    [...rewards].filter(r => r.totalRedemptionCount > 0).sort((a, b) => b.totalRedemptionCount - a.totalRedemptionCount).slice(0, 10)
-      .map(r => ({ name: (r.name || 'Unknown').substring(0, 15), count: r.totalRedemptionCount })),
-    [rewards]);
+  const topProducts = useMemo(() => {
+    // Count sales per product from orders in the selected month
+    const monthOrders = orders.filter(o =>
+      o.createdAt?.substring(0, 7) === chartMonth && o.status !== 'CANCELLED'
+    );
+    const salesMap = new Map<string, { name: string; count: number }>();
+    monthOrders.forEach(o => {
+      o.items?.forEach(item => {
+        const existing = salesMap.get(item.goodsId);
+        if (existing) existing.count += item.quantity;
+        else salesMap.set(item.goodsId, { name: item.goodsName || 'Unknown', count: item.quantity });
+      });
+    });
+    const sorted = [...salesMap.values()].sort((a, b) => b.count - a.count).slice(0, 10);
+    if (sorted.length > 0) {
+      return sorted.map(s => ({ name: s.name.substring(0, 15), count: s.count }));
+    }
+    // No sales this month — show 10 random goods with count 0
+    return rewards.slice(0, 10).map(r => ({ name: (r.name || 'Unknown').substring(0, 15), count: 0 }));
+  }, [orders, rewards, chartMonth]);
 
   const topBadges = useMemo(() => {
-    const badgeMap = new Map(badges.map(b => [b.badgeId, b.name?.en || b.name?.zh || b.badgeId]));
-    return [...badgeStats].sort((a, b) => b.count - a.count).slice(0, 10)
+    const badgeOnly = badges.filter(b => b.category === 'badge');
+    const badgeMap = new Map(badgeOnly.map(b => [b.badgeId, b.name?.en || b.name?.zh || b.badgeId]));
+    const badgeIds = new Set(badgeOnly.map(b => b.badgeId));
+    const withSales = [...badgeStats].filter(s => badgeIds.has(s.badgeId) && s.count > 0)
+      .sort((a, b) => b.count - a.count).slice(0, 10)
       .map(s => ({ name: (badgeMap.get(s.badgeId) || s.badgeId || 'Unknown').substring(0, 15), count: s.count }));
+    if (withSales.length > 0) return withSales;
+    // No sales — show 10 random badges with count 0
+    return badgeOnly.slice(0, 10).map(b => ({ name: (b.name?.en || b.name?.zh || b.badgeId).substring(0, 15), count: 0 }));
+  }, [badgeStats, badges]);
+
+  const topClothes = useMemo(() => {
+    const clothOnly = badges.filter(b => b.category === 'cloth');
+    const clothMap = new Map(clothOnly.map(b => [b.badgeId, b.name?.en || b.name?.zh || b.badgeId]));
+    const clothIds = new Set(clothOnly.map(b => b.badgeId));
+    const withSales = [...badgeStats].filter(s => clothIds.has(s.badgeId) && s.count > 0)
+      .sort((a, b) => b.count - a.count).slice(0, 10)
+      .map(s => ({ name: (clothMap.get(s.badgeId) || s.badgeId || 'Unknown').substring(0, 15), count: s.count }));
+    if (withSales.length > 0) return withSales;
+    // No sales — show 10 random clothes with count 0
+    return clothOnly.slice(0, 10).map(b => ({ name: (b.name?.en || b.name?.zh || b.badgeId).substring(0, 15), count: 0 }));
   }, [badgeStats, badges]);
 
   const categoryDist = useMemo(() => {
-    const map: Record<string, number> = {};
-    rewards.forEach(r => { const cat = r.category || 'Other'; map[cat] = (map[cat] || 0) + 1; });
-    return Object.entries(map).map(([name, value]) => ({ name, value }));
-  }, [rewards]);
+    // Map goodsId → category from rewards
+    const catMap = new Map(rewards.map(r => [r.id, r.category || 'Other']));
+    // Count sales by category from orders in selected month
+    const monthOrders = orders.filter(o =>
+      o.createdAt?.substring(0, 7) === chartMonth && o.status !== 'CANCELLED'
+    );
+    const salesByCat = new Map<string, number>();
+    monthOrders.forEach(o => {
+      o.items?.forEach(item => {
+        const cat = catMap.get(item.goodsId) || 'Other';
+        salesByCat.set(cat, (salesByCat.get(cat) || 0) + item.quantity);
+      });
+    });
+    if (salesByCat.size > 0) {
+      return [...salesByCat.entries()].map(([name, value]) => ({ name, value }));
+    }
+    return [];
+  }, [orders, rewards, chartMonth]);
 
   const acquisitionDist = useMemo(() => {
     const map: Record<string, number> = {};
@@ -218,9 +300,9 @@ export function AnalyticsManagement() {
     return Math.round((vipCount / nonAdminUsers.length) * 100);
   }, [nonAdminUsers]);
 
-  const totalCarbonFromUsers = useMemo(() =>
-    nonAdminUsers.reduce((s, u) => s + (u.totalCarbon || 0), 0),
-    [nonAdminUsers]);
+  const totalCarbonFromTrips = useMemo(() =>
+    trips.filter(t => t.carbonStatus === 'completed').reduce((s, t) => s + (t.carbonSaved || 0), 0),
+    [trips]);
 
   const activeUserCount = useMemo(() => {
     const now = new Date();
@@ -246,14 +328,355 @@ export function AnalyticsManagement() {
 
   const greenTripRate = trips.length > 0 ? Math.round((trips.filter(t => t.isGreenTrip).length / trips.length) * 100) : 0;
   const totalPointsSpent = pointsEconomy.find(p => p.name === 'Spent')?.value || 0;
-  const bestSellerCount = rewards.length > 0 ? Math.max(...rewards.map(r => r.totalRedemptionCount), 0) : 0;
-  const totalBadgesSold = badgeStats.reduce((s, b) => s + (b.count || 0), 0);
 
   const top10Users = useMemo(() =>
     (leaderboardData?.rankingsPage?.content || []).slice(0, 10).map(u => ({
       name: (u.nickname || u.userId).substring(0, 12), carbon: Math.round(u.carbonSaved * 100) / 100,
     })),
     [leaderboardData]);
+
+  // ─── Month-based chart data ───
+
+  const userGrowthData = useMemo(() => {
+    const [year, month] = chartMonth.split('-').map(Number);
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const today = new Date();
+    const monthStart = `${chartMonth}-01`;
+
+    // Users registered before this month (cumulative baseline)
+    let cumulative = nonAdminUsers.filter(u => u.createdAt && u.createdAt.substring(0, 10) < monthStart).length;
+
+    const data: { date: string; totalUsers: number; newUsers: number; activeUsers: number }[] = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${chartMonth}-${String(d).padStart(2, '0')}`;
+      if (new Date(dateStr) > today) break;
+
+      const newUsers = nonAdminUsers.filter(u => u.createdAt?.substring(0, 10) === dateStr).length;
+      cumulative += newUsers;
+      const activeUsers = nonAdminUsers.filter(u => u.lastLoginAt?.substring(0, 10) === dateStr).length;
+
+      data.push({ date: `${month}/${d}`, totalUsers: cumulative, newUsers, activeUsers });
+    }
+    return data;
+  }, [nonAdminUsers, chartMonth]);
+
+  const carbonTrendData = useMemo(() => {
+    const [year, month] = chartMonth.split('-').map(Number);
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const today = new Date();
+
+    let cumulative = 0;
+    const data: { date: string; dailyCarbon: number; totalCarbon: number }[] = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${chartMonth}-${String(d).padStart(2, '0')}`;
+      if (new Date(dateStr) > today) break;
+
+      const dailyCarbon = trips
+        .filter(t => t.startTime?.substring(0, 10) === dateStr)
+        .reduce((sum, t) => sum + (t.carbonSaved || 0), 0);
+      cumulative += dailyCarbon;
+
+      data.push({
+        date: `${month}/${d}`,
+        dailyCarbon: Math.round(dailyCarbon * 100) / 100,
+        totalCarbon: Math.round(cumulative * 100) / 100,
+      });
+    }
+    return data;
+  }, [trips, chartMonth]);
+
+  const changeMonth = (delta: number) => {
+    setChartMonth(prev => {
+      const [y, m] = prev.split('-').map(Number);
+      const d = new Date(y, m - 1 + delta, 1);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    });
+  };
+
+  const chartMonthLabel = useMemo(() => {
+    const [y, m] = chartMonth.split('-').map(Number);
+    return new Date(y, m - 1).toLocaleString('en-US', { year: 'numeric', month: 'long' });
+  }, [chartMonth]);
+
+  // ─── Chart renderer ───
+
+  const renderChart = (index: number) => {
+    const H = 400;
+    switch (index) {
+      case 0: return (
+        <div>
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <button onClick={() => changeMonth(-1)} className="px-2 py-1 rounded hover:bg-gray-100 text-gray-600 font-bold">&lt;</button>
+            <span className="text-sm font-medium text-gray-700 min-w-[140px] text-center">{chartMonthLabel}</span>
+            <button onClick={() => changeMonth(1)} className="px-2 py-1 rounded hover:bg-gray-100 text-gray-600 font-bold">&gt;</button>
+          </div>
+          <ResponsiveContainer width="100%" height={H}>
+            <LineChart data={userGrowthData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis dataKey="date" stroke="#6b7280" tick={{ fontSize: 12 }} />
+              <YAxis stroke="#6b7280" />
+              <Tooltip contentStyle={tooltipStyle} />
+              <Legend />
+              <Line type="monotone" dataKey="totalUsers" stroke="#3b82f6" strokeWidth={2} name="Total Users" dot={false} />
+              <Line type="monotone" dataKey="newUsers" stroke="#10b981" strokeWidth={2} name="New Users" dot={false} />
+              <Line type="monotone" dataKey="activeUsers" stroke="#8b5cf6" strokeWidth={2} name="Active Users" dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      );
+      case 1: return (
+        <div>
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <button onClick={() => changeMonth(-1)} className="px-2 py-1 rounded hover:bg-gray-100 text-gray-600 font-bold">&lt;</button>
+            <span className="text-sm font-medium text-gray-700 min-w-[140px] text-center">{chartMonthLabel}</span>
+            <button onClick={() => changeMonth(1)} className="px-2 py-1 rounded hover:bg-gray-100 text-gray-600 font-bold">&gt;</button>
+          </div>
+          <ResponsiveContainer width="100%" height={H}>
+            <AreaChart data={carbonTrendData}>
+              <defs>
+                <linearGradient id="colorCarbon" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0.1} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis dataKey="date" stroke="#6b7280" tick={{ fontSize: 12 }} />
+              <YAxis stroke="#6b7280" />
+              <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`${v.toLocaleString()} kg`, '']} />
+              <Legend />
+              <Area type="monotone" dataKey="totalCarbon" stroke="#10b981" fill="url(#colorCarbon)" name="Cumulative Carbon (kg)" />
+              <Line type="monotone" dataKey="dailyCarbon" stroke="#3b82f6" strokeWidth={2} name="Daily Carbon (kg)" dot={false} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      );
+      case 2: return (
+        <ResponsiveContainer width="100%" height={H}>
+          <LineChart data={tripVolumeTrend}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <XAxis dataKey="date" stroke="#6b7280" tick={{ fontSize: 12 }} />
+            <YAxis stroke="#6b7280" />
+            <Tooltip contentStyle={tooltipStyle} />
+            <Legend />
+            <Line type="monotone" dataKey="total" stroke="#3b82f6" strokeWidth={2} name="Total Trips" dot={false} />
+            <Line type="monotone" dataKey="green" stroke="#10b981" strokeWidth={2} name="Green Trips" dot={false} />
+          </LineChart>
+        </ResponsiveContainer>
+      );
+      case 3: return (
+        <ResponsiveContainer width="100%" height={H}>
+          <BarChart data={carbonByMode}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <XAxis dataKey="mode" stroke="#6b7280" tick={{ fontSize: 11 }} />
+            <YAxis stroke="#6b7280" />
+            <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`${v} kg`, 'Carbon Saved']} />
+            <Bar dataKey="carbon" name="Carbon Saved (kg)" radius={[4, 4, 0, 0]}>
+              {carbonByMode.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      );
+      case 4: return (
+        <ResponsiveContainer width="100%" height={H}>
+          <PieChart>
+            <Pie data={transportDist} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={130} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}>
+              {transportDist.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+            </Pie>
+            <Tooltip />
+          </PieChart>
+        </ResponsiveContainer>
+      );
+      case 5: return (
+        <ResponsiveContainer width="100%" height={H}>
+          <PieChart>
+            <Pie data={greenData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={70} outerRadius={130} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}>
+              <Cell fill="#10b981" />
+              <Cell fill="#ef4444" />
+            </Pie>
+            <Tooltip />
+            <Legend />
+          </PieChart>
+        </ResponsiveContainer>
+      );
+      case 6: return (
+        <ResponsiveContainer width="100%" height={H}>
+          <BarChart data={[...facultyRankings].sort((a, b) => b.totalCarbon - a.totalCarbon)} layout="vertical">
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <XAxis type="number" stroke="#6b7280" />
+            <YAxis dataKey="faculty" type="category" stroke="#6b7280" width={120} tick={{ fontSize: 11 }} />
+            <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`${v.toFixed(2)} kg`, 'Carbon Saved']} />
+            <Bar dataKey="totalCarbon" name="Carbon Saved (kg)" radius={[0, 4, 4, 0]}>
+              {facultyRankings.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      );
+      case 7: return (
+        <ResponsiveContainer width="100%" height={H}>
+          <BarChart data={top10Users} layout="vertical">
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <XAxis type="number" stroke="#6b7280" />
+            <YAxis dataKey="name" type="category" stroke="#6b7280" width={100} tick={{ fontSize: 11 }} />
+            <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`${v} kg`, 'Carbon Saved']} />
+            <Bar dataKey="carbon" name="Carbon Saved (kg)" radius={[0, 4, 4, 0]}>
+              {top10Users.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      );
+      case 8: return (
+        <div>
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <button onClick={() => changeMonth(-1)} className="px-2 py-1 rounded hover:bg-gray-100 text-gray-600 font-bold">&lt;</button>
+            <span className="text-sm font-medium text-gray-700 min-w-[140px] text-center">{chartMonthLabel}</span>
+            <button onClick={() => changeMonth(1)} className="px-2 py-1 rounded hover:bg-gray-100 text-gray-600 font-bold">&gt;</button>
+          </div>
+          <ResponsiveContainer width="100%" height={H}>
+            <BarChart data={topProducts} layout="vertical">
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis type="number" stroke="#6b7280" />
+              <YAxis dataKey="name" type="category" stroke="#6b7280" width={120} tick={{ fontSize: 11 }} />
+              <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [v, 'Sales']} />
+              <Bar dataKey="count" name="Sales" radius={[0, 4, 4, 0]}>
+                {topProducts.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      );
+      case 9: return (
+        <ResponsiveContainer width="100%" height={H}>
+          <BarChart data={topBadges} layout="vertical">
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <XAxis type="number" stroke="#6b7280" />
+            <YAxis dataKey="name" type="category" stroke="#6b7280" width={120} tick={{ fontSize: 11 }} />
+            <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [v, 'Purchases']} />
+            <Bar dataKey="count" name="Purchases" radius={[0, 4, 4, 0]}>
+              {topBadges.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      );
+      case 10: return (
+        <ResponsiveContainer width="100%" height={H}>
+          <BarChart data={topClothes} layout="vertical">
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <XAxis type="number" stroke="#6b7280" />
+            <YAxis dataKey="name" type="category" stroke="#6b7280" width={120} tick={{ fontSize: 11 }} />
+            <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [v, 'Purchases']} />
+            <Bar dataKey="count" name="Purchases" radius={[0, 4, 4, 0]}>
+              {topClothes.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      );
+      case 11: return (
+        categoryDist.length === 0 ? (
+          <div className="flex flex-col items-center justify-center" style={{ height: H }}>
+            <div className="w-52 h-52 rounded-full bg-gray-200 flex items-center justify-center">
+              <span className="text-gray-400 text-sm">No sales data</span>
+            </div>
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={H}>
+            <PieChart>
+              <Pie data={categoryDist} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={130} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}>
+                {categoryDist.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+              </Pie>
+              <Tooltip />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
+        )
+      );
+      case 12: return (
+        <ResponsiveContainer width="100%" height={H}>
+          <PieChart>
+            <Pie data={acquisitionDist} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={130} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}>
+              {acquisitionDist.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+            </Pie>
+            <Tooltip />
+            <Legend />
+          </PieChart>
+        </ResponsiveContainer>
+      );
+      case 13: return (
+        <ResponsiveContainer width="100%" height={H}>
+          <BarChart data={challengeParticipation}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <XAxis dataKey="title" stroke="#6b7280" tick={{ fontSize: 10 }} angle={-15} textAnchor="end" height={60} />
+            <YAxis stroke="#6b7280" />
+            <Tooltip contentStyle={tooltipStyle} />
+            <Bar dataKey="participants" name="Participants" radius={[4, 4, 0, 0]}>
+              {challengeParticipation.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      );
+      case 14: return (
+        <ResponsiveContainer width="100%" height={H}>
+          <PieChart>
+            <Pie data={challengeTypeDist} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={130} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}>
+              {challengeTypeDist.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+            </Pie>
+            <Tooltip />
+            <Legend />
+          </PieChart>
+        </ResponsiveContainer>
+      );
+      case 15: return (
+        <ResponsiveContainer width="100%" height={H}>
+          <PieChart>
+            <Pie data={vipDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={130} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}>
+              {vipDistribution.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+            </Pie>
+            <Tooltip />
+            <Legend />
+          </PieChart>
+        </ResponsiveContainer>
+      );
+      case 16: return (
+        <ResponsiveContainer width="100%" height={H}>
+          <BarChart data={pointsEconomy}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <XAxis dataKey="name" stroke="#6b7280" />
+            <YAxis stroke="#6b7280" tickFormatter={(v) => formatNum(v)} />
+            <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [formatNum(v), 'Points']} />
+            <Bar dataKey="value" name="Points" radius={[4, 4, 0, 0]}>
+              <Cell fill="#10b981" />
+              <Cell fill="#3b82f6" />
+              <Cell fill="#f59e0b" />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      );
+      case 17: return (
+        <ResponsiveContainer width="100%" height={H}>
+          <PieChart>
+            <Pie data={orderStatusDist} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={130} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}>
+              {orderStatusDist.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+            </Pie>
+            <Tooltip />
+            <Legend />
+          </PieChart>
+        </ResponsiveContainer>
+      );
+      case 18: return (
+        <ResponsiveContainer width="100%" height={H}>
+          <BarChart data={analyticsData?.revenueGrowthTrend || []}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <XAxis dataKey="date" stroke="#6b7280" tick={{ fontSize: 12 }} />
+            <YAxis stroke="#6b7280" />
+            <Tooltip contentStyle={tooltipStyle} />
+            <Legend />
+            <Bar dataKey="vipRevenue" fill="#8b5cf6" name="VIP Points" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="shopRevenue" fill="#ec4899" name="Shop Points" radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      );
+      default: return null;
+    }
+  };
 
   // ─── Render ───
 
@@ -294,295 +717,59 @@ export function AnalyticsManagement() {
 
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
 
-        {/* Row 2: KPI Cards */}
+        {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <KpiCard title="Total Users" value={formatNum(totalUserCount || nonAdminUsers.length)} unit="registered users" icon={<Users className="size-6" />} color="from-blue-500 to-blue-600" />
           <KpiCard title="Active Users" value={formatNum(activeUserCount)} unit={`active in ${timeRange} period`} icon={<Activity className="size-6" />} color="from-purple-500 to-purple-600" />
-          <KpiCard title="Total Carbon Saved" value={formatNum(Math.round(totalCarbonFromUsers))} unit="kg CO2" icon={<Leaf className="size-6" />} color="from-green-500 to-green-600" />
+          <KpiCard title="Total Carbon Saved" value={formatNum(Math.round(totalCarbonFromTrips))} unit="kg CO2" icon={<Leaf className="size-6" />} color="from-green-500 to-green-600" />
           <KpiCard title="Green Trip Rate" value={`${greenTripRate}%`} unit={`${trips.filter(t => t.isGreenTrip).length} / ${trips.length} trips`} icon={<TreePine className="size-6" />} color="from-emerald-500 to-emerald-600" />
           <KpiCard title="VIP Penetration" value={`${vipPenetration}%`} unit="of all users" icon={<Crown className="size-6" />} color="from-amber-500 to-amber-600" />
           <KpiCard title="Total Points Spent" value={formatNum(totalPointsSpent)} unit="points consumed" icon={<Coins className="size-6" />} color="from-orange-500 to-orange-600" />
-          <KpiCard title="Best Seller Count" value={formatNum(bestSellerCount)} unit="top product redemptions" icon={<ShoppingBag className="size-6" />} color="from-pink-500 to-pink-600" />
-          <KpiCard title="Total Badges Sold" value={formatNum(totalBadgesSold)} unit="badges purchased" icon={<Award className="size-6" />} color="from-indigo-500 to-indigo-600" />
+          <KpiCard title="Total Goods Count" value={formatNum(rewards.length)} unit="products available" icon={<ShoppingBag className="size-6" />} color="from-pink-500 to-pink-600" />
+          <KpiCard title="Total Collectible Count" value={formatNum(badges.length)} unit="badges & clothes" icon={<Award className="size-6" />} color="from-indigo-500 to-indigo-600" />
         </div>
 
-        {/* Row 3: User Growth + Carbon Saved Trends */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ChartCard title="User Growth Trends">
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={analyticsData?.userGrowthTrend || []}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="date" stroke="#6b7280" tick={{ fontSize: 12 }} />
-                <YAxis stroke="#6b7280" />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Legend />
-                <Line type="monotone" dataKey="users" stroke="#3b82f6" strokeWidth={2} name="Total Users" dot={false} />
-                <Line type="monotone" dataKey="newUsers" stroke="#10b981" strokeWidth={2} name="New Users" dot={false} />
-                <Line type="monotone" dataKey="activeUsers" stroke="#8b5cf6" strokeWidth={2} name="Active Users" dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </ChartCard>
+        {/* Charts: Left chart + Right nav list */}
+        <Card className="p-6">
+          <div className="flex gap-6" style={{ minHeight: 500 }}>
+            {/* Left: Selected chart */}
+            <div className="flex-1 min-w-0">
+              <h3 className="text-lg font-semibold mb-4">{CHART_NAMES[selectedChart]}</h3>
+              {renderChart(selectedChart)}
+            </div>
+            {/* Right: Chart navigation list */}
+            <div className="w-56 border-l pl-4 overflow-y-auto flex-shrink-0" style={{ maxHeight: 500 }}>
+              {CHART_SECTIONS.map((section) => (
+                <div key={section.label}>
+                  <div className="text-xs font-bold text-gray-400 uppercase tracking-wide mt-3 mb-1 px-2 first:mt-0">
+                    {section.label}
+                  </div>
+                  {CHART_NAMES.slice(section.start, section.end).map((name, i) => {
+                    const globalIndex = section.start + i;
+                    return (
+                      <div
+                        key={globalIndex}
+                        onClick={() => setSelectedChart(globalIndex)}
+                        className={`px-3 py-2 rounded cursor-pointer text-sm mb-0.5 transition-colors ${
+                          globalIndex === selectedChart
+                            ? 'bg-blue-50 text-blue-600 font-semibold'
+                            : 'text-gray-700 hover:bg-gray-100'
+                        }`}
+                      >
+                        {name}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
 
-          <ChartCard title="Carbon Saved Trends">
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={analyticsData?.carbonGrowthTrend || []}>
-                <defs>
-                  <linearGradient id="colorCarbon" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.1} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="date" stroke="#6b7280" tick={{ fontSize: 12 }} />
-                <YAxis stroke="#6b7280" />
-                <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`${v.toLocaleString()} kg`, '']} />
-                <Legend />
-                <Area type="monotone" dataKey="carbonSaved" stroke="#10b981" fill="url(#colorCarbon)" name="Carbon Saved (kg)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </ChartCard>
-        </div>
-
-        {/* Row 4: Trip Volume Trend + Carbon by Mode */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ChartCard title="Trip Volume Trend">
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={tripVolumeTrend}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="date" stroke="#6b7280" tick={{ fontSize: 12 }} />
-                <YAxis stroke="#6b7280" />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Legend />
-                <Line type="monotone" dataKey="total" stroke="#3b82f6" strokeWidth={2} name="Total Trips" dot={false} />
-                <Line type="monotone" dataKey="green" stroke="#10b981" strokeWidth={2} name="Green Trips" dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </ChartCard>
-
-          <ChartCard title="Carbon Saved by Transport Mode">
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={carbonByMode}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="mode" stroke="#6b7280" tick={{ fontSize: 11 }} />
-                <YAxis stroke="#6b7280" />
-                <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`${v} kg`, 'Carbon Saved']} />
-                <Bar dataKey="carbon" name="Carbon Saved (kg)" radius={[4, 4, 0, 0]}>
-                  {carbonByMode.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartCard>
-        </div>
-
-        {/* Row 5: Transport Mode Pie + Green vs Non-Green Donut */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ChartCard title="Transport Mode Distribution">
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie data={transportDist} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}>
-                  {transportDist.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </ChartCard>
-
-          <ChartCard title="Green vs Non-Green Trips">
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie data={greenData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={100} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}>
-                  <Cell fill="#10b981" />
-                  <Cell fill="#ef4444" />
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </ChartCard>
-        </div>
-
-        {/* Row 6: Faculty Rankings + Top 10 Users */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ChartCard title="Faculty Carbon Rankings (Monthly)">
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={[...facultyRankings].sort((a, b) => b.totalCarbon - a.totalCarbon)} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis type="number" stroke="#6b7280" />
-                <YAxis dataKey="faculty" type="category" stroke="#6b7280" width={120} tick={{ fontSize: 11 }} />
-                <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`${v.toFixed(2)} kg`, 'Carbon Saved']} />
-                <Bar dataKey="totalCarbon" name="Carbon Saved (kg)" radius={[0, 4, 4, 0]}>
-                  {facultyRankings.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartCard>
-
-          <ChartCard title="Top 10 Users by Carbon Saved">
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={top10Users} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis type="number" stroke="#6b7280" />
-                <YAxis dataKey="name" type="category" stroke="#6b7280" width={100} tick={{ fontSize: 11 }} />
-                <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [`${v} kg`, 'Carbon Saved']} />
-                <Bar dataKey="carbon" name="Carbon Saved (kg)" radius={[0, 4, 4, 0]}>
-                  {top10Users.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartCard>
-        </div>
-
-        {/* Row 7: Heatmap */}
+        {/* Heatmap */}
         <Card className="p-6">
           <HeatMapView title="Trip Activity Heatmap" height="550px" heatmapData={heatmapData} />
         </Card>
-
-        {/* Row 8: Top Products + Top Badges */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ChartCard title="Top 10 Selling Products">
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={topProducts}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="name" stroke="#6b7280" tick={{ fontSize: 10 }} angle={-20} textAnchor="end" height={60} />
-                <YAxis stroke="#6b7280" />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Bar dataKey="count" name="Redemptions" radius={[4, 4, 0, 0]}>
-                  {topProducts.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartCard>
-
-          <ChartCard title="Top 10 Popular Badges">
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={topBadges}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="name" stroke="#6b7280" tick={{ fontSize: 10 }} angle={-20} textAnchor="end" height={60} />
-                <YAxis stroke="#6b7280" />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Bar dataKey="count" name="Purchases" radius={[4, 4, 0, 0]}>
-                  {topBadges.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartCard>
-        </div>
-
-        {/* Row 9: Product Category + Badge Acquisition Method */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ChartCard title="Product Category Distribution">
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie data={categoryDist} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}>
-                  {categoryDist.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </ChartCard>
-
-          <ChartCard title="Badge Acquisition Method">
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie data={acquisitionDist} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}>
-                  {acquisitionDist.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </ChartCard>
-        </div>
-
-        {/* Row 10: Challenge Participation + Type */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ChartCard title="Challenge Participation">
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={challengeParticipation}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="title" stroke="#6b7280" tick={{ fontSize: 10 }} angle={-15} textAnchor="end" height={60} />
-                <YAxis stroke="#6b7280" />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Bar dataKey="participants" name="Participants" radius={[4, 4, 0, 0]}>
-                  {challengeParticipation.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartCard>
-
-          <ChartCard title="Challenge Type Distribution">
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie data={challengeTypeDist} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}>
-                  {challengeTypeDist.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </ChartCard>
-        </div>
-
-        {/* Row 11: VIP Distribution + Points Economy */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ChartCard title="VIP Membership Distribution">
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie data={vipDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}>
-                  {vipDistribution.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </ChartCard>
-
-          <ChartCard title="Points Economy Overview">
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={pointsEconomy}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="name" stroke="#6b7280" />
-                <YAxis stroke="#6b7280" tickFormatter={(v) => formatNum(v)} />
-                <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => [formatNum(v), 'Points']} />
-                <Bar dataKey="value" name="Points" radius={[4, 4, 0, 0]}>
-                  <Cell fill="#10b981" />
-                  <Cell fill="#3b82f6" />
-                  <Cell fill="#f59e0b" />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartCard>
-        </div>
-
-        {/* Row 12: Order Status + Revenue Trends */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ChartCard title="Order Status Distribution">
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie data={orderStatusDist} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}>
-                  {orderStatusDist.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </ChartCard>
-
-          <ChartCard title="Revenue Trends (Points-based)">
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={analyticsData?.revenueGrowthTrend || []}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="date" stroke="#6b7280" tick={{ fontSize: 12 }} />
-                <YAxis stroke="#6b7280" />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Legend />
-                <Bar dataKey="vipRevenue" fill="#8b5cf6" name="VIP Points" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="shopRevenue" fill="#ec4899" name="Shop Points" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartCard>
-        </div>
 
       </div>
     </div>
