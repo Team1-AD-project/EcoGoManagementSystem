@@ -49,26 +49,26 @@ export function HeatMapView({
       div.style.borderRadius = '5px';
       div.style.boxShadow = '0 0 15px rgba(0,0,0,0.2)';
       div.innerHTML = `
-        <div style="font-weight: bold; margin-bottom: 5px;">Activity Level</div>
+        <div style="font-weight: bold; margin-bottom: 5px;">Visit Frequency</div>
         <div style="display: flex; align-items: center; margin-bottom: 3px;">
-          <div style="width: 20px; height: 20px; background: darkred; margin-right: 5px; border-radius: 3px;"></div>
-          <span>Very High</span>
+          <div style="width: 20px; height: 20px; background: #991b1b; margin-right: 5px; border-radius: 3px;"></div>
+          <span>81-100%</span>
         </div>
         <div style="display: flex; align-items: center; margin-bottom: 3px;">
-          <div style="width: 20px; height: 20px; background: red; margin-right: 5px; border-radius: 3px;"></div>
-          <span>High</span>
+          <div style="width: 20px; height: 20px; background: #ef4444; margin-right: 5px; border-radius: 3px;"></div>
+          <span>61-80%</span>
         </div>
         <div style="display: flex; align-items: center; margin-bottom: 3px;">
-          <div style="width: 20px; height: 20px; background: orange; margin-right: 5px; border-radius: 3px;"></div>
-          <span>Medium</span>
+          <div style="width: 20px; height: 20px; background: #f97316; margin-right: 5px; border-radius: 3px;"></div>
+          <span>41-60%</span>
         </div>
         <div style="display: flex; align-items: center; margin-bottom: 3px;">
-          <div style="width: 20px; height: 20px; background: yellow; margin-right: 5px; border-radius: 3px;"></div>
-          <span>Low</span>
+          <div style="width: 20px; height: 20px; background: #eab308; margin-right: 5px; border-radius: 3px;"></div>
+          <span>21-40%</span>
         </div>
         <div style="display: flex; align-items: center;">
-          <div style="width: 20px; height: 20px; background: green; margin-right: 5px; border-radius: 3px;"></div>
-          <span>Very Low</span>
+          <div style="width: 20px; height: 20px; background: #22c55e; margin-right: 5px; border-radius: 3px;"></div>
+          <span>1-20%</span>
         </div>
       `;
       return div;
@@ -85,7 +85,7 @@ export function HeatMapView({
     };
   }, []);
 
-  // Update heat layer when data changes
+  // Update heat layer when data changes + auto-fit to data bounds
   useEffect(() => {
     if (!mapInstanceRef.current) return;
 
@@ -97,17 +97,27 @@ export function HeatMapView({
     const data = heatmapData && heatmapData.length > 0 ? heatmapData : [];
 
     if (data.length > 0) {
+      // Auto-fit map to data bounds
+      const lats = data.map(d => d[0]);
+      const lngs = data.map(d => d[1]);
+      const bounds = L.latLngBounds(
+        [Math.min(...lats), Math.min(...lngs)],
+        [Math.max(...lats), Math.max(...lngs)]
+      );
+      mapInstanceRef.current.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+
       const layer = (L as any).heatLayer(data, {
-        radius: 25,
-        blur: 15,
+        radius: 35,
+        blur: 22,
         maxZoom: 17,
         max: 1.0,
+        minOpacity: 0.45,
         gradient: {
-          0.0: 'green',
-          0.3: 'yellow',
-          0.5: 'orange',
-          0.7: 'red',
-          1.0: 'darkred',
+          0.2: '#22c55e',   // Very Low  - green
+          0.4: '#eab308',   // Low       - yellow
+          0.6: '#f97316',   // Medium    - orange
+          0.8: '#ef4444',   // High      - red
+          1.0: '#991b1b',   // Very High - darkred
         },
       }).addTo(mapInstanceRef.current);
       heatLayerRef.current = layer;

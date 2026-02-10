@@ -155,12 +155,28 @@ export function AnalyticsManagement() {
   // ─── Derived data ───
 
   const heatmapData = useMemo<Array<[number, number, number]>>(() => {
-    const points: Array<[number, number, number]> = [];
+    // Only use endPoint (destination) to mark where users go
+    const grid = new Map<string, { lat: number; lng: number; count: number }>();
+    const precision = 3; // ~111m grid cells
     trips.forEach(t => {
-      if (t.startPoint) points.push([t.startPoint.lat, t.startPoint.lng, 1.0]);
-      if (t.endPoint) points.push([t.endPoint.lat, t.endPoint.lng, 1.0]);
+      if (!t.endPoint) return;
+      const key = `${t.endPoint.lat.toFixed(precision)},${t.endPoint.lng.toFixed(precision)}`;
+      const existing = grid.get(key);
+      if (existing) { existing.count++; }
+      else { grid.set(key, { lat: t.endPoint.lat, lng: t.endPoint.lng, count: 1 }); }
     });
-    return points;
+    // Map frequency to 5 tiers: 0.2 / 0.4 / 0.6 / 0.8 / 1.0
+    const maxCount = Math.max(1, ...[...grid.values()].map(g => g.count));
+    return [...grid.values()].map(g => {
+      const ratio = g.count / maxCount;
+      let intensity: number;
+      if (ratio <= 0.2) intensity = 0.2;
+      else if (ratio <= 0.4) intensity = 0.4;
+      else if (ratio <= 0.6) intensity = 0.6;
+      else if (ratio <= 0.8) intensity = 0.8;
+      else intensity = 1.0;
+      return [g.lat, g.lng, intensity] as [number, number, number];
+    });
   }, [trips]);
 
   const transportDist = useMemo(() => {
