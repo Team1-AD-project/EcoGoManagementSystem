@@ -498,6 +498,14 @@ export function CollectiblesManagement() {
         <p className="text-gray-600 mt-1">Manage badges and pet clothes store</p>
       </div>
 
+      {error && (
+        <div className="px-6 pt-6">
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative">
+            <span className="block sm:inline">{error}</span>
+          </div>
+        </div>
+      )}
+
       {/* Statistics Cards */}
       <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="p-4 bg-gradient-to-br from-blue-500 to-blue-600 text-white">
@@ -585,7 +593,7 @@ export function CollectiblesManagement() {
                 <div className="flex-1 min-w-[180px]">
                   <Label>Acquisition Method</Label>
                   <Select value={filterMethod} onValueChange={handleFilterMethodChange}>
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -639,14 +647,14 @@ export function CollectiblesManagement() {
                         <p className="text-gray-600 mb-1">Requirement:</p>
                         <p className="font-medium text-gray-900">{badge.requirementDescription}</p>
                       </div>
-                      
+
                       {badge.acquisitionMethod === 'purchase' && (
                         <div className="flex items-center justify-between pt-2 border-t">
                           <span className="text-sm text-gray-600">Price:</span>
                           <span className="font-bold text-blue-600">{badge.price} points</span>
                         </div>
                       )}
-                      
+
                       <div className="flex items-center justify-between pt-2 border-t">
                         <span className="text-sm text-gray-600">Own:</span>
                         <span className="font-semibold text-gray-900">{badge.ownedBy}</span>
@@ -815,14 +823,14 @@ export function CollectiblesManagement() {
                           <p className="text-gray-600 mb-1">Requirement:</p>
                           <p className="font-medium text-gray-900">{accessory.requirementDescription}</p>
                         </div>
-                        
+
                         {accessory.acquisitionMethod === 'purchase' && (
                           <div className="flex items-center justify-between pt-2 border-t">
                             <span className="text-sm text-gray-600">Price:</span>
                             <span className="font-bold text-blue-600">{accessory.price} points</span>
                           </div>
                         )}
-                        
+
                         <div className="flex items-center justify-between pt-2 border-t">
                           <span className="text-sm text-gray-600">Sold:</span>
                           <span className="font-semibold text-gray-900">{accessory.ownedBy}</span>
@@ -922,7 +930,7 @@ export function CollectiblesManagement() {
                   onChange={(e) => setEditingBadge({ ...editingBadge, name: e.target.value })}
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="badge-description">Description</Label>
                 <Textarea
@@ -1351,7 +1359,7 @@ export function CollectiblesManagement() {
                   onChange={(e) => setEditingAccessory({ ...editingAccessory, name: e.target.value })}
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="accessory-description">Description</Label>
                 <Textarea

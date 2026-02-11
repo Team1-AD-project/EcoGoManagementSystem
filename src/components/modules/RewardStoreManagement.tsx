@@ -31,12 +31,8 @@ import {
   TrendingUp,
   ShoppingBag,
   AlertCircle,
-  Image as ImageIcon,
-  Clock,
+  Loader2,
   User,
-  Truck,
-  CheckCircle,
-  XCircle,
   Ticket
 } from 'lucide-react';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
@@ -75,18 +71,17 @@ export function RewardStoreManagement() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedReward, setSelectedReward] = useState<Reward | null>(null);
-  const [ordersTotalItems, setOrdersTotalItems] = useState(0);
+
 
   const [vouchers, setVouchers] = useState<Reward[]>([]);
   const [isLoadingVouchers, setIsLoadingVouchers] = useState(false);
   const [vouchersPage, setVouchersPage] = useState(1);
   const [vouchersTotalPages, setVouchersTotalPages] = useState(1);
-  const [vouchersTotalItems, setVouchersTotalItems] = useState(0);
+
 
   const [categories, setCategories] = useState<string[]>([]);
 
   const [activeTab, setActiveTab] = useState('products');
-  const [filterCategory, setFilterCategory] = useState<string>('all');
 
   // Real-time Sold Counts from Orders
   const [soldCounts, setSoldCounts] = useState<Record<string, number>>({});
@@ -101,7 +96,6 @@ export function RewardStoreManagement() {
   const loadSalesData = async () => {
     try {
       // Fetch a large batch of orders to aggregate sales
-      // In a real app with thousands of orders, this should be a backend endpoint.
       const response = await fetchOrders(1, 1000);
       if (response && response.code === 200) {
         const allOrders = response.data.orders || [];
@@ -159,9 +153,7 @@ export function RewardStoreManagement() {
           list = responseData.list || responseData.goods || responseData.records || responseData.items || [];
           if (responseData.pagination) {
             setVouchersTotalPages(responseData.pagination.totalPages || 1);
-            setVouchersTotalItems(responseData.pagination.total || 0);
           } else if (responseData.total) {
-            setVouchersTotalItems(responseData.total || 0);
             setVouchersTotalPages(responseData.totalPages || 1);
           }
         }
@@ -225,7 +217,7 @@ export function RewardStoreManagement() {
         setRewards(mappedList);
 
         // Fallback or explicit pagination from root if logical
-        if (response.pagination && !totalPages) {
+        if (response.pagination) {
           setTotalPages(response.pagination.totalPages);
           setTotalItems(response.pagination.total);
         }
@@ -522,6 +514,7 @@ export function RewardStoreManagement() {
                           size="icon"
                           className="text-red-600 hover:text-red-700 hover:bg-red-50"
                           onClick={() => handleDeleteClick(reward)}
+                          aria-label="Delete"
                         >
                           <Trash2 className="size-4" />
                         </Button>
@@ -654,6 +647,7 @@ export function RewardStoreManagement() {
                           size="icon"
                           className="text-red-600 hover:text-red-700 hover:bg-red-50"
                           onClick={() => handleDeleteClick(voucher)}
+                          aria-label="Delete"
                         >
                           <Trash2 className="size-4" />
                         </Button>
@@ -827,8 +821,8 @@ export function RewardStoreManagement() {
             <div className="space-y-6 py-4">
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label>Product Name</Label>
-                  <Input value={selectedReward.name || ''} onChange={e => setSelectedReward({ ...selectedReward, name: e.target.value })} placeholder="e.g. Eco Water Bottle" />
+                  <Label htmlFor="reward-name">Product Name</Label>
+                  <Input id="reward-name" value={selectedReward.name || ''} onChange={e => setSelectedReward({ ...selectedReward, name: e.target.value })} placeholder="e.g. Eco Water Bottle" />
                 </div>
                 <div className="space-y-2">
                   <Label>Category</Label>

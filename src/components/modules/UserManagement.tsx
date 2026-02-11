@@ -365,9 +365,10 @@ export function UserManagement() {
               {/* VIP Status Switch */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label>VIP Status</Label>
+                  <Label htmlFor="vip-status">VIP Status</Label>
                   <div className="flex items-center gap-2">
                     <Switch
+                      id="vip-status"
                       checked={editingUser.vip?.active || false}
                       onCheckedChange={(checked) => setEditingUser(curr => {
                         if (!curr) return null;
@@ -410,9 +411,10 @@ export function UserManagement() {
               {/* Account Status Switch */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label>Account Status</Label>
+                  <Label htmlFor="account-status">Account Status</Label>
                   <div className="flex items-center gap-2">
                     <Switch
+                      id="account-status"
                       checked={!editingUser.isDeactivated}
                       onCheckedChange={(checked) => setEditingUser(curr => curr ? { ...curr, isDeactivated: !checked } : null)}
                       className={!editingUser.isDeactivated ? "data-[state=checked]:bg-green-600" : "data-[state=unchecked]:bg-red-600"}

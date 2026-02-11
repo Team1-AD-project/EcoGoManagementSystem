@@ -20,7 +20,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
-function parsePolylinePoints(rawPoints: unknown): L.LatLngExpression[] {
+export function parsePolylinePoints(rawPoints: unknown): L.LatLngExpression[] {
   try {
     let points: unknown = rawPoints;
     if (typeof points === 'string') {
@@ -43,7 +43,7 @@ function parsePolylinePoints(rawPoints: unknown): L.LatLngExpression[] {
   }
 }
 
-function buildRoutePoints(
+export function buildRoutePoints(
   trip: TripDetail,
   hasStart: boolean,
   hasEnd: boolean,
@@ -79,7 +79,7 @@ function buildRoutePoints(
   return routePoints;
 }
 
-function hasValidPoint(point: { lat?: number; lng?: number } | null | undefined): boolean {
+export function hasValidPoint(point: { lat?: number; lng?: number } | null | undefined): boolean {
   return !!point && point.lat !== undefined && point.lng !== undefined;
 }
 
@@ -460,10 +460,18 @@ export function TripDataManagement() {
               {users.map(user => (
                 <div
                   key={user.id}
+                  role="button"
+                  aria-label={`Select user ${user.nickname}`}
                   className={`p-4 cursor-pointer transition-colors hover:bg-gray-50 ${selectedUserId === user.userid ? 'bg-blue-50 border-l-4 border-blue-500' : 'border-l-4 border-transparent'}`}
                   onClick={() => {
                     setSelectedUserId(user.userid);
                   }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      setSelectedUserId(user.userid);
+                    }
+                  }}
+                  tabIndex={0}
                 >
                   <div className="flex items-start gap-3">
                     <Avatar className={user.vip?.active ? "border-2 border-purple-500" : ""}>

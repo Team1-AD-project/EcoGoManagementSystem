@@ -9,12 +9,11 @@ import {
   Crown,
   Users,
   CheckCircle,
-  XCircle,
+  Zap,
+  Loader2,
   Calendar,
   TrendingUp,
-  Settings,
-  Zap,
-  Loader2
+  Settings
 } from 'lucide-react';
 import { fetchUserList, type User } from '@/services/userService';
 import { fetchVipSwitches, updateVipSwitch, type VipSwitch } from '@/services/vipService';
@@ -45,8 +44,7 @@ export function VIPManagement() {
   const loadUsers = async () => {
     setIsLoading(true);
     try {
-      // Fetch a larger list to find VIPs. In a real app, backend should support filtering by VIP status.
-      // For now, fetching first 100 users.
+      // Fetch a larger list to find VIPs.
       const response = await fetchUserList(1, 100);
       if (response && response.code === 200) {
         setUsers(response.data?.list || []);

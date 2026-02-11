@@ -45,7 +45,7 @@ const FACULTY_COLORS = [
   'from-teal-400 to-teal-500',
 ];
 
-function computeNewDate(current: string, direction: number, type: LeaderboardType): string {
+export function computeNewDate(current: string, direction: number, type: LeaderboardType): string {
   if (type === 'DAILY') {
     const d = new Date(current);
     d.setDate(d.getDate() + direction);
@@ -56,7 +56,7 @@ function computeNewDate(current: string, direction: number, type: LeaderboardTyp
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
-function getRankBadge(rank: number) {
+export function getRankBadge(rank: number) {
   if (rank === 1) return <Crown className="size-6 text-yellow-500" />;
   if (rank === 2) return <Medal className="size-6 text-gray-400" />;
   if (rank === 3) return <Medal className="size-6 text-orange-400" />;

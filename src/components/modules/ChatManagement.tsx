@@ -138,8 +138,8 @@ export function ChatManagement() {
   const totalActiveUsers = models.reduce((sum, model) => sum + model.stats.activeUsers, 0);
 
   const toggleModelStatus = (modelId: string) => {
-    setModels(models.map(model => 
-      model.id === modelId 
+    setModels(models.map(model =>
+      model.id === modelId
         ? { ...model, status: model.status === 'active' ? 'inactive' : 'active' }
         : model
     ));
@@ -384,7 +384,7 @@ export function ChatManagement() {
                     <span className="text-xs text-gray-500">Model: {model.name}</span>
                   </div>
                   <p className="text-sm text-gray-600 mb-3">{model.description}</p>
-                  
+
                   <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-3">
                     <div>
                       <p className="text-xs text-gray-500">Total Requests</p>
@@ -414,6 +414,7 @@ export function ChatManagement() {
                     variant="outline"
                     size="sm"
                     onClick={() => handleTestModel(model.id)}
+                    aria-label="Test Model"
                   >
                     <TestTube className="size-4 mr-2" />
                     Test
@@ -422,6 +423,7 @@ export function ChatManagement() {
                     variant="outline"
                     size="sm"
                     onClick={() => setEditingModel(model)}
+                    aria-label="Edit Model"
                   >
                     <Edit className="size-4" />
                   </Button>
@@ -429,6 +431,7 @@ export function ChatManagement() {
                     variant="outline"
                     size="sm"
                     onClick={() => toggleModelStatus(model.id)}
+                    aria-label="Toggle Status"
                   >
                     {model.status === 'active' ? (
                       <Pause className="size-4" />
@@ -440,6 +443,7 @@ export function ChatManagement() {
                     variant="outline"
                     size="sm"
                     onClick={() => deleteModel(model.id)}
+                    aria-label="Delete Model"
                   >
                     <Trash2 className="size-4 text-red-600" />
                   </Button>
