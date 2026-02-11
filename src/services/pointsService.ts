@@ -52,3 +52,17 @@ export const fetchAllPointsHistory = async (): Promise<TransactionListResponse> 
     const response = await api.get<TransactionListResponse>('/points/history/all');
     return response.data;
 };
+
+// 新增：管理员调整用户积分的请求接口
+export interface AdjustPointsRequest {
+    points: number;
+    source: string;
+    description: string;
+    reason: string;
+}
+
+// 新增：调整用户积分（Admin）
+export const adjustUserPoints = async (userid: string, data: AdjustPointsRequest): Promise<any> => {
+    const response = await api.post(`/users/${userid}/points/adjust`, data);
+    return response.data;
+};

@@ -16,9 +16,19 @@ import {
   Info
 } from 'lucide-react';
 import { fetchUserList, type User } from '@/services/userService';
-import { fetchUserTransactions, type PointsTransaction } from '@/services/pointsService';
+import { fetchUserTransactions, adjustUserPoints, type PointsTransaction } from '@/services/pointsService';
 import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 export function PointsTransactionManagement() {
   const [users, setUsers] = useState<User[]>([]);
@@ -27,6 +37,49 @@ export function PointsTransactionManagement() {
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+
+  const [isAdjustDialogOpen, setIsAdjustDialogOpen] = useState(false);
+  const [adjustForm, setAdjustForm] = useState({ points: '', description: '', reason: '' });
+
+  const handleAdjustPoints = async () => {
+    if (!selectedUser) return;
+    const points = Number(adjustForm.points);
+    if (isNaN(points) || points === 0) {
+      toast.error("Please enter a valid point amount (non-zero)");
+      return;
+    }
+    if (!adjustForm.description || !adjustForm.reason) {
+      toast.error("Description and Reason are required");
+      return;
+    }
+
+    try {
+      await adjustUserPoints(selectedUser.userid, {
+        points,
+        source: 'admin',
+        description: adjustForm.description,
+        reason: adjustForm.reason
+      });
+      toast.success("Points adjusted successfully");
+      setIsAdjustDialogOpen(false);
+      setAdjustForm({ points: '', description: '', reason: '' });
+
+      // Refresh transactions
+      const res = await fetchUserTransactions(selectedUser.userid);
+      if (res.code === 200) setTransactions(res.data || []);
+
+      // Optimistic update for UI balance
+      const newBalance = selectedUser.currentPoints + points;
+      const newTotal = points > 0 ? selectedUser.totalPoints + points : selectedUser.totalPoints;
+
+      setSelectedUser(prev => prev ? { ...prev, currentPoints: newBalance, totalPoints: newTotal } : null);
+      setUsers(prev => prev.map(u => u.userid === selectedUser.userid ? { ...u, currentPoints: newBalance, totalPoints: newTotal } : u));
+
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to adjust points");
+    }
+  };
 
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -122,13 +175,7 @@ export function PointsTransactionManagement() {
           <p className="text-gray-600 mt-1">View user points income and expenditure records and transaction details</p>
         </div>
         <div className="relative w-64">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
-          <Input
-            placeholder="Search by name or ID..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-8"
-          />
+          {/* Search removed as requested */}
         </div>
       </div>
 
@@ -230,11 +277,61 @@ export function PointsTransactionManagement() {
                   </Avatar>
 
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 mb-4">
-                      <h3 className="text-2xl font-bold text-gray-900 tracking-tight">{selectedUser.nickname}</h3>
-                      <Badge className={`px-2.5 py-0.5 text-xs font-medium ${selectedUser.vip?.active ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
-                        {selectedUser.vip?.active ? 'VIP USER' : 'NORMAL USER'}
-                      </Badge>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <h3 className="text-2xl font-bold text-gray-900 tracking-tight">{selectedUser.nickname}</h3>
+                        <Badge className={`px-2.5 py-0.5 text-xs font-medium ${selectedUser.vip?.active ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                          {selectedUser.vip?.active ? 'VIP USER' : 'NORMAL USER'}
+                        </Badge>
+                      </div>
+
+                      <Dialog open={isAdjustDialogOpen} onOpenChange={setIsAdjustDialogOpen}>
+                        <DialogTrigger asChild>
+                          <Button variant="outline" size="sm" className="ml-auto border-blue-200 hover:bg-blue-50 text-blue-700">
+                            <Settings className="mr-2 h-4 w-4" /> Adjust Points
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Adjust User Points</DialogTitle>
+                            <DialogDescription>
+                              Manually modify points for {selectedUser.nickname}.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="space-y-4 py-4">
+                            <div className="space-y-2">
+                              <Label>Points Adjustment (+/-)</Label>
+                              <Input
+                                type="number"
+                                placeholder="-50 or 100"
+                                value={adjustForm.points}
+                                onChange={e => setAdjustForm({ ...adjustForm, points: e.target.value })}
+                              />
+                              <p className="text-xs text-gray-500">Negative to deduct, positive to add.</p>
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Description</Label>
+                              <Input
+                                placeholder="e.g. Manual Deduction"
+                                value={adjustForm.description}
+                                onChange={e => setAdjustForm({ ...adjustForm, description: e.target.value })}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Reason (Internal)</Label>
+                              <Input
+                                placeholder="e.g. Ticket #12345"
+                                value={adjustForm.reason}
+                                onChange={e => setAdjustForm({ ...adjustForm, reason: e.target.value })}
+                              />
+                            </div>
+                          </div>
+                          <DialogFooter>
+                            <Button variant="outline" onClick={() => setIsAdjustDialogOpen(false)}>Cancel</Button>
+                            <Button onClick={handleAdjustPoints}>Confirm Adjustment</Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
                     </div>
 
                     <div className="grid grid-cols-3 gap-4 max-w-3xl">
